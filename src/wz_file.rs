@@ -60,7 +60,7 @@ impl WzFile {
         };
         reader.file_start = WzFile::parse_wz_header(&reader)?;
 
-        if let Ok((version, version_hash)) = determine_version(&mut reader) {
+        if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
             self.version = version;
             self.version_hash = version_hash;
             reader.set_version_hash(version_hash);
