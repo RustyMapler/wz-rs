@@ -145,7 +145,6 @@ impl WzFile {
             WzFile::get_offset_for_version(self.reader.as_ref().unwrap().file_start, self.version);
 
         self.root = Some(WzDirectory {
-            file: self,
             reader: self.reader.as_mut().unwrap(),
             offset,
             name: self.name.clone(),
@@ -251,7 +250,6 @@ impl WzFile {
 
         // Create a new test directory
         let mut test_directory = WzDirectory {
-            file: self,
             reader: self.reader.as_mut().unwrap(),
             offset,
             name: self.name.clone(),
