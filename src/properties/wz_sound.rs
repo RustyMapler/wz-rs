@@ -50,8 +50,8 @@ impl WzSoundProperty {
         let wav_len = reader.read_u8()?;
         reader.seek(header_offset)?;
 
-        let header = (*reader)
-            .read_bytes(WzSoundProperty::SOUND_HEADER.len() as u64 + 1 + wav_len as u64)?;
+        let header_len = WzSoundProperty::SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
+        let header = reader.read_bytes(header_len)?;
 
         let sound_offset = reader.get_position()?;
         reader.skip(data_len as usize)?; // skip bytes to read later

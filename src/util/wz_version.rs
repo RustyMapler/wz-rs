@@ -75,7 +75,8 @@ fn test_version_and_version_hash(
     reader.set_version_hash(version_hash);
 
     // Seek to the file offset for this version
-    let offset = get_version_offset(*reader.file_start.borrow(), version);
+    let file_start = *reader.file_start.borrow();
+    let offset = get_version_offset(file_start, version);
     reader.seek(offset as u64)?;
 
     // Create a new test directory
@@ -87,22 +88,22 @@ fn test_version_and_version_hash(
         objects: HashMap::new(),
     };
 
-    // Attempt to parse the root directory
+    // Test the root directory and look for other directories
     test_directory.parse_directory(false)?;
     if test_directory.directories.is_empty() && test_directory.objects.is_empty() {
         return Err(Error::new(ErrorKind::Other, "Failed directory test"));
     }
 
-    // If there are objects, run additional tests
+    // If there are objects, check to see if it has the .img header
     if !test_directory.objects.is_empty() {
-        let (_name, test_image) = match test_directory.objects.iter().next() {
-            Some(v) => v,
+        let object = match test_directory.objects.iter().next() {
+            Some((_, object)) => object,
             None => {
                 return Err(Error::new(ErrorKind::Other, "Failed to get next object"));
             }
         };
 
-        reader.seek(test_image.offset.into())?;
+        reader.seek(object.offset.into())?;
 
         let test_byte = reader.read_u8()?;
         if test_byte != WzObject::HEADERBYTE_WITHOUT_OFFSET
@@ -120,7 +121,8 @@ fn detect_known_version(reader: Arc<WzReader>, version: u16) -> Result<bool, Err
     if version > 0xff {
         return Ok(true);
     } else if version == 0x80 {
-        reader.seek(*reader.file_start.borrow() as u64)?;
+        let file_start = *reader.file_start.borrow();
+        reader.seek(file_start as u64)?;
         let property_count = reader.read_wz_int()?;
         if property_count > 0 && (property_count & 0xFF) == 0 && property_count <= 0xFFFF {
             return Ok(true);
