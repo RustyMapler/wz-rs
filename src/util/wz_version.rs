@@ -2,6 +2,7 @@ use crate::{WzDirectory, WzObject, WzReader};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
+    sync::Arc,
 };
 
 const WZ_GMS_OLD_IV: [u8; 4] = [0x4D, 0x23, 0xC7, 0x2B];
@@ -52,26 +53,23 @@ fn match_version_hash(version: i16, version_hash: u32) -> bool {
 
 // Test the version hash, then set the reader position back to its original position
 fn verify_version_and_version_hash(
-    reader: &mut WzReader,
+    reader: Arc<WzReader>,
     version: i16,
     version_hash: u32,
 ) -> Result<(), Error> {
     let original_position = reader.get_position()?;
-    let test_result = test_version_and_version_hash(reader, version, version_hash);
+    let test_result = test_version_and_version_hash(reader.clone(), version, version_hash);
     reader.seek(original_position)?;
     test_result
 }
 
 // Test the version and version hash with a dummy directory
 fn test_version_and_version_hash(
-    reader: &mut WzReader,
+    reader: Arc<WzReader>,
     version: i16,
     version_hash: u32,
 ) -> Result<(), Error> {
     log::trace!("test: version {}, version_hash {}", version, version_hash);
-
-    // Set the reader's hash
-    reader.hash = version_hash;
 
     // Seek to the file offset for this version
     let offset = get_version_offset(reader.file_start, version);
@@ -79,16 +77,16 @@ fn test_version_and_version_hash(
 
     // Create a new test directory
     let mut test_directory = WzDirectory {
-        reader: reader,
+        reader: reader.clone(),
         offset,
         name: "Test Directory".to_owned(),
-        sub_directories: HashMap::new(),
+        directories: HashMap::new(),
         objects: HashMap::new(),
     };
 
     // Attempt to parse the root directory
     test_directory.parse_directory(false)?;
-    if test_directory.sub_directories.is_empty() && test_directory.objects.is_empty() {
+    if test_directory.directories.is_empty() && test_directory.objects.is_empty() {
         return Err(Error::new(ErrorKind::Other, "Failed directory test"));
     }
 
@@ -132,7 +130,9 @@ fn detect_known_version(reader: &mut WzReader, version: u16) -> Result<bool, Err
 // Get the version by testing a known version
 fn attempt_known_version(reader: &mut WzReader, version: i16) -> Option<(i16, u32)> {
     let version_hash = calculate_version_hash(version);
-    match verify_version_and_version_hash(reader, version, version_hash) {
+    reader.set_version_hash(version_hash);
+    let immutable_reader = Arc::new(reader.clone());
+    match verify_version_and_version_hash(immutable_reader, version, version_hash) {
         Ok(_) => Some((version, version_hash)),
         Err(_) => None,
     }
@@ -143,8 +143,10 @@ fn bruteforce_version(reader: &mut WzReader, version: i16) -> Option<(i16, u32)>
     for brute_force_version in 0..MAX_BRUTE_FORCE_VERSION {
         let brute_force_version_hash = calculate_version_hash(brute_force_version);
         if match_version_hash(version, brute_force_version_hash) {
+            reader.set_version_hash(brute_force_version_hash);
+            let immutable_reader = Arc::new(reader.clone());
             match verify_version_and_version_hash(
-                reader,
+                immutable_reader,
                 brute_force_version,
                 brute_force_version_hash,
             ) {

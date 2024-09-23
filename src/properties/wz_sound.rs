@@ -1,10 +1,10 @@
-use std::io::Error;
+use std::{io::Error, sync::Arc};
 
 use crate::{WzNode, WzProperty, WzReader};
 
 pub struct WzSoundProperty {
     pub name: String,
-    pub reader: *mut WzReader,
+    pub reader: Arc<WzReader>,
     pub offset: u32,
     pub len: u32,
     pub data_len: u32,
@@ -36,48 +36,44 @@ impl WzSoundProperty {
     ];
 
     pub fn create(
-        reader: *mut WzReader,
+        reader: Arc<WzReader>,
         offset: u32,
         name: String,
     ) -> Result<WzSoundProperty, Error> {
-        unsafe {
-            (*reader).skip(1)?;
-            let data_len = (*reader).read_wz_int()?;
-            let len = (*reader).read_wz_int()?;
+        reader.skip(1)?;
+        let data_len = reader.read_wz_int()?;
+        let len = reader.read_wz_int()?;
 
-            // Get the wav_len
-            let header_offset = (*reader).get_position()?;
-            (*reader).skip(WzSoundProperty::SOUND_HEADER.len())?;
-            let wav_len = (*reader).read_u8()?;
-            (*reader).seek(header_offset)?;
+        // Get the wav_len
+        let header_offset = reader.get_position()?;
+        reader.skip(WzSoundProperty::SOUND_HEADER.len())?;
+        let wav_len = reader.read_u8()?;
+        reader.seek(header_offset)?;
 
-            let header = (*reader)
-                .read_bytes(WzSoundProperty::SOUND_HEADER.len() as u64 + 1 + wav_len as u64)?;
+        let header = (*reader)
+            .read_bytes(WzSoundProperty::SOUND_HEADER.len() as u64 + 1 + wav_len as u64)?;
 
-            let sound_offset = (*reader).get_position()?;
-            (*reader).skip(data_len as usize)?; // skip bytes to read later
+        let sound_offset = reader.get_position()?;
+        reader.skip(data_len as usize)?; // skip bytes to read later
 
-            Ok(WzSoundProperty {
-                reader,
-                offset,
-                name,
-                len: len as u32,
-                data_len: data_len as u32,
-                header,
-                sound_offset,
-            })
-        }
+        Ok(WzSoundProperty {
+            reader,
+            offset,
+            name,
+            len: len as u32,
+            data_len: data_len as u32,
+            header,
+            sound_offset,
+        })
     }
 
     pub fn parse_sound(&self) -> Result<Vec<u8>, Error> {
-        unsafe {
-            let current_position = (*self.reader).get_position()?;
-            (*self.reader).seek(self.sound_offset)?;
+        let current_position = self.reader.get_position()?;
+        self.reader.seek(self.sound_offset)?;
 
-            let sound_bytes = (*self.reader).read_bytes(self.data_len.into())?;
-            (*self.reader).seek(current_position)?;
+        let sound_bytes = self.reader.read_bytes(self.data_len.into())?;
+        self.reader.seek(current_position)?;
 
-            Ok(sound_bytes)
-        }
+        Ok(sound_bytes)
     }
 }

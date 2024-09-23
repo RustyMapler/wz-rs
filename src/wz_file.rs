@@ -3,15 +3,17 @@ use crate::{
     wz_crypto::generate_wz_key, WzDirectory, WzNode, WzReader, WzVersion, INVALID_VERSION,
 };
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs::{self, File},
     io::{Cursor, Error, ErrorKind, Read},
     path::Path,
+    sync::Arc,
 };
 
 pub struct WzFile {
     pub name: String,
-    pub reader: Option<WzReader>,
+    pub reader: Arc<WzReader>,
     pub version: i16,
     pub version_hash: u32,
     pub root: Option<WzDirectory>,
@@ -26,7 +28,12 @@ impl WzFile {
         WzFile {
             name: file_path.file_name().unwrap().to_str().unwrap().into(),
             file_path: path.to_string(),
-            reader: None,
+            reader: Arc::new(WzReader {
+                file: RefCell::new(Cursor::new(Vec::new())),
+                wz_key: None,
+                file_start: 0,
+                version_hash: 0.into(),
+            }),
             version: INVALID_VERSION,
             version_hash: 0,
             root: None,
@@ -44,21 +51,22 @@ impl WzFile {
         let mut buffer = vec![0; metadata.len() as usize];
         file.read_exact(&mut buffer)?;
 
+        // Create reader
         let mut reader = WzReader {
             file: Cursor::new(buffer).into(),
             wz_key: generate_wz_key(get_iv_for_version(self.wz_version)),
             file_start: 0,
-            hash: 0,
+            version_hash: 0.into(),
         };
         reader.file_start = WzFile::parse_wz_header(&reader)?;
 
         if let Ok((version, version_hash)) = determine_version(&mut reader) {
             self.version = version;
             self.version_hash = version_hash;
-            reader.hash = version_hash;
+            reader.set_version_hash(version_hash);
         }
 
-        self.reader = Some(reader);
+        self.reader = reader.into();
 
         self.parse_wz_main_directory()?;
 
@@ -101,13 +109,13 @@ impl WzFile {
 
     /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
     fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
-        let offset = get_version_offset(self.reader.as_ref().unwrap().file_start, self.version);
+        let offset = get_version_offset(self.reader.file_start, self.version);
 
         self.root = Some(WzDirectory {
-            reader: self.reader.as_mut().unwrap(),
+            reader: self.reader.clone(),
             offset,
             name: self.name.clone(),
-            sub_directories: HashMap::new(),
+            directories: HashMap::new(),
             objects: HashMap::new(),
         });
         self.root.as_mut().unwrap().parse_directory(true).unwrap();
