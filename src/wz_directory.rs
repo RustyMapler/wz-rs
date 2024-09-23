@@ -57,7 +57,8 @@ impl WzDirectory {
                     let offset = self.reader.read_u32()?;
                     remember_pos = self.reader.get_position()?;
 
-                    self.reader.seek((self.reader.file_start + offset) as u64)?;
+                    self.reader
+                        .seek((*self.reader.file_start.borrow() + offset) as u64)?;
 
                     entry_type = self.reader.read_u8()?;
                     entry_name = self.reader.read_wz_string()?;

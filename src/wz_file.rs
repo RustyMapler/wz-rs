@@ -3,7 +3,6 @@ use crate::{
     wz_crypto::generate_wz_key, WzDirectory, WzNode, WzReader, WzVersion, INVALID_VERSION,
 };
 use std::{
-    cell::RefCell,
     collections::HashMap,
     fs::{self, File},
     io::{Cursor, Error, ErrorKind, Read},
@@ -28,12 +27,7 @@ impl WzFile {
         WzFile {
             name: file_path.file_name().unwrap().to_str().unwrap().into(),
             file_path: path.to_string(),
-            reader: Arc::new(WzReader {
-                file: RefCell::new(Cursor::new(Vec::new())),
-                wz_key: None,
-                file_start: 0,
-                version_hash: 0.into(),
-            }),
+            reader: Arc::new(WzReader::new(Cursor::new(Vec::new()), None)),
             version: INVALID_VERSION,
             version_hash: 0,
             root: None,
@@ -52,13 +46,12 @@ impl WzFile {
         file.read_exact(&mut buffer)?;
 
         // Create reader
-        let mut reader = WzReader {
-            file: Cursor::new(buffer).into(),
-            wz_key: generate_wz_key(get_iv_for_version(self.wz_version)),
-            file_start: 0,
-            version_hash: 0.into(),
-        };
-        reader.file_start = WzFile::parse_wz_header(&reader)?;
+        let mut reader = WzReader::new(
+            Cursor::new(buffer),
+            generate_wz_key(get_iv_for_version(self.wz_version)),
+        );
+
+        reader.file_start = WzFile::parse_wz_header(&reader)?.into();
 
         if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
             self.version = version;
@@ -109,7 +102,7 @@ impl WzFile {
 
     /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
     fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
-        let offset = get_version_offset(self.reader.file_start, self.version);
+        let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
 
         self.root = Some(WzDirectory {
             reader: self.reader.clone(),

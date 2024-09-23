@@ -75,7 +75,7 @@ fn test_version_and_version_hash(
     reader.set_version_hash(version_hash);
 
     // Seek to the file offset for this version
-    let offset = get_version_offset(reader.file_start, version);
+    let offset = get_version_offset(*reader.file_start.borrow(), version);
     reader.seek(offset as u64)?;
 
     // Create a new test directory
@@ -120,7 +120,7 @@ fn detect_known_version(reader: Arc<WzReader>, version: u16) -> Result<bool, Err
     if version > 0xff {
         return Ok(true);
     } else if version == 0x80 {
-        reader.seek(reader.file_start as u64)?;
+        reader.seek(*reader.file_start.borrow() as u64)?;
         let property_count = reader.read_wz_int()?;
         if property_count > 0 && (property_count & 0xFF) == 0 && property_count <= 0xFFFF {
             return Ok(true);
