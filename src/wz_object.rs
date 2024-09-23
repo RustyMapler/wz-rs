@@ -1,7 +1,7 @@
 use crate::{
-    WzCanvasProperty, WzConvexProperty, WzDoubleProperty, WzExtendedProperty, WzFile,
-    WzFloatProperty, WzIntProperty, WzLongProperty, WzNode, WzProperty, WzReader, WzShortProperty,
-    WzSoundProperty, WzStringProperty, WzUolProperty, WzVectorProperty,
+    WzCanvasProperty, WzConvexProperty, WzDoubleProperty, WzExtendedProperty, WzFloatProperty,
+    WzIntProperty, WzLongProperty, WzNode, WzProperty, WzReader, WzShortProperty, WzSoundProperty,
+    WzStringProperty, WzUolProperty, WzVectorProperty,
 };
 
 use std::{
@@ -11,7 +11,6 @@ use std::{
 };
 
 pub struct WzObject {
-    pub file: *mut WzFile,
     pub reader: *mut WzReader,
     pub offset: u32,
     pub name: String,

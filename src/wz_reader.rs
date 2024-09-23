@@ -1,12 +1,13 @@
 use crate::{wz_mutable_key::WzMutableKey, wz_object::WzObject};
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
+    cell::RefCell,
     io::{prelude::*, Cursor, Error, ErrorKind, SeekFrom},
     u64,
 };
 
 pub struct WzReader {
-    pub file: Cursor<Vec<u8>>,
+    pub file: RefCell<Cursor<Vec<u8>>>,
     pub file_start: u32,
     pub hash: u32,
     /// WZ key used to decrypt strings. In newer WZ versions, decryption is not used
@@ -14,59 +15,59 @@ pub struct WzReader {
 }
 
 impl WzReader {
-    pub fn seek(&mut self, pos: u64) -> Result<u64, Error> {
-        self.file.seek(SeekFrom::Start(pos))
+    pub fn seek(&self, pos: u64) -> Result<u64, Error> {
+        self.file.borrow_mut().seek(SeekFrom::Start(pos))
     }
 
-    pub fn get_position(&mut self) -> Result<u64, Error> {
-        self.file.stream_position()
+    pub fn get_position(&self) -> Result<u64, Error> {
+        self.file.borrow_mut().stream_position()
     }
 
-    pub fn skip(&mut self, len: usize) -> Result<u64, Error> {
-        self.file.seek(SeekFrom::Current(len as i64))
+    pub fn skip(&self, len: usize) -> Result<u64, Error> {
+        self.file.borrow_mut().seek(SeekFrom::Current(len as i64))
     }
 
-    pub fn read_u8(&mut self) -> Result<u8, Error> {
-        self.file.read_u8()
+    pub fn read_u8(&self) -> Result<u8, Error> {
+        self.file.borrow_mut().read_u8()
     }
 
-    pub fn read_u16(&mut self) -> Result<u16, Error> {
-        self.file.read_u16::<LittleEndian>()
+    pub fn read_u16(&self) -> Result<u16, Error> {
+        self.file.borrow_mut().read_u16::<LittleEndian>()
     }
 
-    pub fn read_u32(&mut self) -> Result<u32, Error> {
-        self.file.read_u32::<LittleEndian>()
+    pub fn read_u32(&self) -> Result<u32, Error> {
+        self.file.borrow_mut().read_u32::<LittleEndian>()
     }
 
-    pub fn read_u64(&mut self) -> Result<u64, Error> {
-        self.file.read_u64::<LittleEndian>()
+    pub fn read_u64(&self) -> Result<u64, Error> {
+        self.file.borrow_mut().read_u64::<LittleEndian>()
     }
 
-    pub fn read_i8(&mut self) -> Result<i8, Error> {
-        self.file.read_i8()
+    pub fn read_i8(&self) -> Result<i8, Error> {
+        self.file.borrow_mut().read_i8()
     }
 
-    pub fn read_i16(&mut self) -> Result<i16, Error> {
-        self.file.read_i16::<LittleEndian>()
+    pub fn read_i16(&self) -> Result<i16, Error> {
+        self.file.borrow_mut().read_i16::<LittleEndian>()
     }
 
-    pub fn read_i32(&mut self) -> Result<i32, Error> {
-        self.file.read_i32::<LittleEndian>()
+    pub fn read_i32(&self) -> Result<i32, Error> {
+        self.file.borrow_mut().read_i32::<LittleEndian>()
     }
 
-    pub fn read_i64(&mut self) -> Result<i64, Error> {
-        self.file.read_i64::<LittleEndian>()
+    pub fn read_i64(&self) -> Result<i64, Error> {
+        self.file.borrow_mut().read_i64::<LittleEndian>()
     }
 
-    pub fn read_f32(&mut self) -> Result<f32, Error> {
-        self.file.read_f32::<LittleEndian>()
+    pub fn read_f32(&self) -> Result<f32, Error> {
+        self.file.borrow_mut().read_f32::<LittleEndian>()
     }
 
-    pub fn read_f64(&mut self) -> Result<f64, Error> {
-        self.file.read_f64::<LittleEndian>()
+    pub fn read_f64(&self) -> Result<f64, Error> {
+        self.file.borrow_mut().read_f64::<LittleEndian>()
     }
 
-    pub fn read_bytes(&mut self, length: u64) -> Result<Vec<u8>, Error> {
+    pub fn read_bytes(&self, length: u64) -> Result<Vec<u8>, Error> {
         let mut buffer: Vec<u8> = vec![];
 
         for _ in 0..length {
@@ -77,7 +78,7 @@ impl WzReader {
         Ok(buffer)
     }
 
-    pub fn read_string(&mut self, length: u64) -> Result<String, Error> {
+    pub fn read_string(&self, length: u64) -> Result<String, Error> {
         let buffer = self.read_bytes(length)?;
 
         match String::from_utf8(buffer) {
@@ -86,7 +87,7 @@ impl WzReader {
         }
     }
 
-    pub fn read_string_to_end(&mut self) -> Result<String, Error> {
+    pub fn read_string_to_end(&self) -> Result<String, Error> {
         let mut buffer: Vec<u8> = vec![];
         let mut val = self.read_u8()?;
         while val != 0 {
@@ -100,7 +101,7 @@ impl WzReader {
         }
     }
 
-    pub fn read_string_block(&mut self, offset: u32) -> Result<String, Error> {
+    pub fn read_string_block(&self, offset: u32) -> Result<String, Error> {
         let string_type = self.read_u8()?;
 
         match string_type {
@@ -113,7 +114,7 @@ impl WzReader {
         }
     }
 
-    pub fn read_wz_int(&mut self) -> Result<i32, Error> {
+    pub fn read_wz_int(&self) -> Result<i32, Error> {
         let possible_size = self.read_i8()?;
 
         if possible_size == -128 {
@@ -124,7 +125,7 @@ impl WzReader {
         }
     }
 
-    pub fn read_wz_long(&mut self) -> Result<i64, Error> {
+    pub fn read_wz_long(&self) -> Result<i64, Error> {
         let possible_size = self.read_i8()?;
 
         if possible_size == -128 {
@@ -135,7 +136,7 @@ impl WzReader {
         }
     }
 
-    pub fn read_wz_string_at_offset(&mut self, offset: u32) -> Result<String, Error> {
+    pub fn read_wz_string_at_offset(&self, offset: u32) -> Result<String, Error> {
         let position = self.get_position()?;
         self.seek(offset.into())?;
         let result = self.read_wz_string();
@@ -144,7 +145,7 @@ impl WzReader {
         result
     }
 
-    pub fn read_wz_string(&mut self) -> Result<String, Error> {
+    pub fn read_wz_string(&self) -> Result<String, Error> {
         let mut size: i32 = self.read_i8()?.into();
 
         if size == 0 {
@@ -168,7 +169,7 @@ impl WzReader {
         return self.read_wz_string_as_ascii(size as u32);
     }
 
-    pub fn read_wz_offset(&mut self) -> Result<u32, Error> {
+    pub fn read_wz_offset(&self) -> Result<u32, Error> {
         let mut offset = self.get_position()?;
         offset = (offset - self.file_start as u64) ^ 0xFFFFFFFF;
         offset = offset * self.hash as u64;
@@ -182,7 +183,7 @@ impl WzReader {
         Ok(offset as u32)
     }
 
-    fn read_wz_string_as_unicode(&mut self, size: u32) -> Result<String, Error> {
+    fn read_wz_string_as_unicode(&self, size: u32) -> Result<String, Error> {
         let mut mask: u16 = 0xAAAA;
         let mut res_string: Vec<u16> = vec![];
 
@@ -199,13 +200,13 @@ impl WzReader {
         for i in 0..(size as usize) {
             let mut encrypted_char = self.read_u16()?;
             encrypted_char ^= mask;
-            match &mut self.wz_key {
-                // Newer versions do not use encryption
-                Some(key) => {
-                    encrypted_char ^= ((key.at(i * 2 + 1) as u16) << 8) + (key.at(i * 2) as u16)
-                }
-                None => {}
-            };
+
+            // Newer versions do not use encryption
+            let key = self.wz_key.clone();
+            if let Some(mut key) = key {
+                encrypted_char ^= ((key.at(i * 2 + 1) as u16) << 8) + (key.at(i * 2) as u16)
+            }
+
             res_string.push(encrypted_char);
             mask += 1;
         }
@@ -216,17 +217,19 @@ impl WzReader {
         }
     }
 
-    fn read_wz_string_as_ascii(&mut self, size: u32) -> Result<String, Error> {
+    fn read_wz_string_as_ascii(&self, size: u32) -> Result<String, Error> {
         let mut mask: u8 = 0xAA;
         let mut res_string: Vec<u8> = vec![];
         for i in 0..(size as usize) {
-            let mut encrypted_char = self.read_u8()? as u8;
+            let mut encrypted_char = self.read_u8()?;
             encrypted_char ^= mask;
-            match &mut self.wz_key {
-                // Newer versions do not use encryption
-                Some(key) => encrypted_char ^= key.at(i) as u8,
-                None => {}
+
+            // Newer versions do not use encryption
+            let key = self.wz_key.clone();
+            if let Some(mut key) = key {
+                encrypted_char ^= key.at(i) as u8
             }
+
             res_string.push(encrypted_char as u8);
             mask += 1;
         }

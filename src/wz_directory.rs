@@ -1,8 +1,7 @@
-use crate::{WzFile, WzNode, WzObject, WzProperty, WzReader};
+use crate::{WzNode, WzObject, WzProperty, WzReader};
 use std::{collections::HashMap, io::Error};
 
 pub struct WzDirectory {
-    pub file: *mut WzFile,
     pub reader: *mut WzReader,
     pub offset: u32,
     pub name: String,
@@ -93,7 +92,6 @@ impl WzDirectory {
                 match obj_type {
                     3 => {
                         let sub_dir = WzDirectory {
-                            file: self.file,
                             reader: self.reader,
                             offset,
                             name: node_name.clone(),
@@ -105,7 +103,6 @@ impl WzDirectory {
                     }
                     _ => {
                         let obj = WzObject {
-                            file: self.file,
                             reader: self.reader,
                             offset,
                             name: node_name.clone(),
