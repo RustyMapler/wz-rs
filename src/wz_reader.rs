@@ -6,15 +6,33 @@ use std::{
     u64,
 };
 
+#[derive(Clone)]
 pub struct WzReader {
     pub file: RefCell<Cursor<Vec<u8>>>,
-    pub file_start: u32,
-    pub hash: u32,
     /// WZ key used to decrypt strings. In newer WZ versions, decryption is not used
     pub wz_key: Option<WzMutableKey>,
+    pub file_start: RefCell<u32>,
+    pub version_hash: RefCell<u32>,
 }
 
 impl WzReader {
+    pub fn new(buffer: Cursor<Vec<u8>>, wz_key: Option<WzMutableKey>) -> WzReader {
+        WzReader {
+            file: RefCell::new(buffer),
+            wz_key: wz_key,
+            file_start: 0.into(),
+            version_hash: 0.into(),
+        }
+    }
+
+    pub fn set_file_start(&self, file_start: u32) {
+        *self.file_start.borrow_mut() = file_start;
+    }
+
+    pub fn set_version_hash(&self, version_hash: u32) {
+        *self.version_hash.borrow_mut() = version_hash;
+    }
+
     pub fn seek(&self, pos: u64) -> Result<u64, Error> {
         self.file.borrow_mut().seek(SeekFrom::Start(pos))
     }
@@ -170,15 +188,18 @@ impl WzReader {
     }
 
     pub fn read_wz_offset(&self) -> Result<u32, Error> {
+        let file_start = *self.file_start.borrow();
+        let version_hash = *self.version_hash.borrow();
+
         let mut offset = self.get_position()?;
-        offset = (offset - self.file_start as u64) ^ 0xFFFFFFFF;
-        offset = offset * self.hash as u64;
+        offset = (offset - (file_start as u64)) ^ 0xFFFFFFFF;
+        offset = offset * (version_hash as u64);
         offset -= 0x581C3F6D;
         offset = rotate_left(offset as u32, (offset & 0x1F) as u8) as u64;
 
         let encrypted_offset = self.read_u32()?;
         offset ^= encrypted_offset as u64;
-        offset += (self.file_start * 2) as u64;
+        offset += (file_start * 2) as u64;
 
         Ok(offset as u32)
     }

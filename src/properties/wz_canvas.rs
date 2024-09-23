@@ -3,7 +3,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use core::panic;
 use inflate::inflate_bytes_zlib;
 use squish::Format;
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, sync::Arc, vec};
 
 pub struct WzCanvasProperty {
     pub root_obj: *mut WzObject,
@@ -13,7 +13,7 @@ pub struct WzCanvasProperty {
     pub height: u32,
     pub format1: u32,
     pub format2: u8,
-    pub reader: *mut WzReader,
+    pub reader: Arc<WzReader>,
     pub offset: u32,
 }
 
@@ -210,18 +210,16 @@ impl WzCanvasProperty {
     }
 
     fn get_compressed_bytes(&self) -> Vec<u8> {
-        unsafe {
-            let current_position = (*self.reader).get_position().unwrap();
-            (*self.reader).seek(self.offset.into()).unwrap();
-            let len = (*self.reader).read_u32().unwrap() - 1;
+        let current_position = self.reader.get_position().unwrap();
+        self.reader.seek(self.offset.into()).unwrap();
+        let len = self.reader.read_u32().unwrap() - 1;
 
-            (*self.reader).skip(1).unwrap();
+        self.reader.skip(1).unwrap();
 
-            let compressed_bytes = (*self.reader).read_bytes(len as u64).unwrap();
-            (*self.reader).seek(current_position).unwrap();
+        let compressed_bytes = self.reader.read_bytes(len as u64).unwrap();
+        self.reader.seek(current_position).unwrap();
 
-            compressed_bytes
-        }
+        compressed_bytes
     }
 
     fn decompress_image_bgra4444_to_rgba8888(data: &[u8], width: u32, height: u32) -> Vec<u8> {
