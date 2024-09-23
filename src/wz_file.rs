@@ -53,7 +53,7 @@ impl WzFile {
         let cursor_file = Cursor::new(buffer);
 
         let mut reader = WzReader {
-            file: cursor_file,
+            file: cursor_file.into(),
             wz_key: generate_wz_key(get_iv_for_version(self.wz_version)),
             file_start: 0,
             hash: 0,

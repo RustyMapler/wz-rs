@@ -4,6 +4,7 @@ use aes::{Aes256, Block};
 use std::f32;
 use std::vec;
 
+#[derive(Clone)]
 pub struct WzMutableKey {
     pub iv: [u8; 4],
     pub aes_user_key: [u8; 32],
