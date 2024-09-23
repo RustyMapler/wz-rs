@@ -16,68 +16,55 @@ pub struct WzReader {
 
 impl WzReader {
     pub fn seek(&self, pos: u64) -> Result<u64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.seek(SeekFrom::Start(pos))
+        self.file.borrow_mut().seek(SeekFrom::Start(pos))
     }
 
     pub fn get_position(&self) -> Result<u64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.stream_position()
+        self.file.borrow_mut().stream_position()
     }
 
     pub fn skip(&self, len: usize) -> Result<u64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.seek(SeekFrom::Current(len as i64))
+        self.file.borrow_mut().seek(SeekFrom::Current(len as i64))
     }
 
     pub fn read_u8(&self) -> Result<u8, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_u8()
+        self.file.borrow_mut().read_u8()
     }
 
     pub fn read_u16(&self) -> Result<u16, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_u16::<LittleEndian>()
+        self.file.borrow_mut().read_u16::<LittleEndian>()
     }
 
     pub fn read_u32(&self) -> Result<u32, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_u32::<LittleEndian>()
+        self.file.borrow_mut().read_u32::<LittleEndian>()
     }
 
     pub fn read_u64(&self) -> Result<u64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_u64::<LittleEndian>()
+        self.file.borrow_mut().read_u64::<LittleEndian>()
     }
 
     pub fn read_i8(&self) -> Result<i8, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_i8()
+        self.file.borrow_mut().read_i8()
     }
 
     pub fn read_i16(&self) -> Result<i16, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_i16::<LittleEndian>()
+        self.file.borrow_mut().read_i16::<LittleEndian>()
     }
 
     pub fn read_i32(&self) -> Result<i32, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_i32::<LittleEndian>()
+        self.file.borrow_mut().read_i32::<LittleEndian>()
     }
 
     pub fn read_i64(&self) -> Result<i64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_i64::<LittleEndian>()
+        self.file.borrow_mut().read_i64::<LittleEndian>()
     }
 
     pub fn read_f32(&self) -> Result<f32, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_f32::<LittleEndian>()
+        self.file.borrow_mut().read_f32::<LittleEndian>()
     }
 
     pub fn read_f64(&self) -> Result<f64, Error> {
-        let mut file = self.file.borrow_mut();
-        file.read_f64::<LittleEndian>()
+        self.file.borrow_mut().read_f64::<LittleEndian>()
     }
 
     pub fn read_bytes(&self, length: u64) -> Result<Vec<u8>, Error> {
