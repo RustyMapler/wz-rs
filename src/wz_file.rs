@@ -107,7 +107,7 @@ impl WzFile {
     /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
     fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
         // Determine file version
-        if !self.is_version_set() {
+        if !WzFile::is_version_set(self.version) {
             let version_from_header = self.reader.as_mut().unwrap().read_u16()?;
             log::trace!("version from header: {}", version_from_header);
 
@@ -134,14 +134,15 @@ impl WzFile {
             }
         }
 
-        if !self.is_version_set() {
+        if !WzFile::is_version_set(self.version) {
             return Err(Error::new(
                 ErrorKind::NotFound,
                 "Unable to determine version",
             ));
         }
 
-        let offset = WzFile::get_offset_for_version(self.reader.as_ref().unwrap(), self.version);
+        let offset =
+            WzFile::get_offset_for_version(self.reader.as_ref().unwrap().file_start, self.version);
 
         self.root = Some(WzDirectory {
             file: self,
@@ -162,15 +163,6 @@ impl WzFile {
         self.version_hash = WzFile::calculate_version_hash(version);
         self.reader.as_mut().unwrap().hash = self.version_hash;
         log::trace!("setting version to {}", version);
-    }
-
-    // File offset depends on the version
-    fn get_offset_for_version(reader: &WzReader, version: i16) -> u32 {
-        if version > MAX_BRUTE_FORCE_VERSION {
-            reader.file_start
-        } else {
-            reader.file_start + 2
-        }
     }
 
     // For versions v230 or higher
@@ -213,11 +205,6 @@ impl WzFile {
         None
     }
 
-    // Returns if this version is set to a valid value
-    fn is_version_set(&mut self) -> bool {
-        self.version != INVALID_VERSION
-    }
-
     // Calculate the hash from version number
     fn calculate_version_hash(version: i16) -> u32 {
         let version_str = version.to_string();
@@ -257,7 +244,8 @@ impl WzFile {
         log::trace!("test: version {}, version_hash {}", version, version_hash);
 
         // Seek to the file offset for this version
-        let offset = WzFile::get_offset_for_version(self.reader.as_ref().unwrap(), version);
+        let offset =
+            WzFile::get_offset_for_version(self.reader.as_ref().unwrap().file_start, version);
         self.reader.as_mut().unwrap().seek(offset as u64)?;
         log::trace!("test: using offset {}", offset);
 
@@ -300,5 +288,19 @@ impl WzFile {
         }
 
         Ok(())
+    }
+
+    // Returns if this version is set to a valid value
+    fn is_version_set(version: i16) -> bool {
+        version != INVALID_VERSION
+    }
+
+    // File offset depends on the version
+    fn get_offset_for_version(file_start: u32, version: i16) -> u32 {
+        if version > MAX_BRUTE_FORCE_VERSION {
+            file_start
+        } else {
+            file_start + 2
+        }
     }
 }
