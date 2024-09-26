@@ -9,16 +9,20 @@ fn main() -> io::Result<()> {
 
     let now = Instant::now();
 
-    let mut map_wz = WzFile::new("assets/Map.wz", WzVersion::GMS);
-    map_wz.open()?;
+    let mut wz_file = WzFile::new("assets/Item.wz", WzVersion::GMS);
+    wz_file.open()?;
 
-    if let Some(node) = map_wz.resolve("MapHelper.img/weather/snow") {
-        log::info!("node: {}", node.get_name());
+    let node = wz_file.parse_main_dir().unwrap();
 
-        for (child, _) in node.get_children() {
-            log::info!("child: {}", child);
-        }
-    }
+    // wz_file.parse_wz_main_directory().unwrap();
+
+    // if let Some(node) = map_wz.resolve("MapHelper.img/weather/snow") {
+    //     log::info!("node: {}", node.get_name());
+
+    //     for (child, _) in node.get_children() {
+    //         log::info!("child: {}", child);
+    //     }
+    // }
 
     let elapsed = now.elapsed();
     log::info!("Elapsed: {:.2?}", elapsed);
