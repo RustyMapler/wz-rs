@@ -46,14 +46,20 @@ pub fn parse_directory(
     reader: &Arc<WzReader>,
     offset: u32,
 ) -> Result<ArcDynamicWzNode, Error> {
-    log::trace!("parse_directory | name({}) offset({})", name, offset);
-
     let mut children = HashMap::new();
 
     reader.seek(offset as u64)?;
 
-    let entry_count = reader.read_wz_int()?;
-    for _ in 0..entry_count {
+    let count = reader.read_wz_int()?;
+
+    log::trace!(
+        "parse_directory | name({}) offset({}) children({})",
+        name,
+        offset,
+        count
+    );
+
+    for _ in 0..count {
         let remember_pos: u64;
         let mut entry_name = String::from("");
         let mut entry_type = reader.read_u8()?;
@@ -98,32 +104,15 @@ pub fn parse_directory(
         match entry_type {
             3 => {
                 let remember_pos = reader.get_position()?;
-                let mut entry_children = HashMap::new();
-                entry_children.insert(
-                    entry_name.clone(),
-                    parse_directory(entry_name.clone(), reader, entry_offset)?,
-                );
+                let node = parse_directory(entry_name.clone(), reader, entry_offset)?;
                 reader.seek(remember_pos)?;
-
-                let node = DynamicWzNode::new_with_children(
-                    &entry_name,
-                    WzValue::Directory,
-                    entry_children,
-                );
-                children.insert(entry_name.clone(), Arc::new(node));
+                children.insert(entry_name.clone(), node);
             }
             _ => {
                 let remember_pos = reader.get_position()?;
-                let mut entry_children = HashMap::new();
-                entry_children.insert(
-                    entry_name.clone(),
-                    parse_img(entry_name.clone(), reader, entry_offset)?,
-                );
+                let node = parse_img(entry_name.clone(), reader, entry_offset)?;
                 reader.seek(remember_pos)?;
-
-                let node =
-                    DynamicWzNode::new_with_children(&entry_name, WzValue::Img, entry_children);
-                children.insert(entry_name.clone(), Arc::new(node));
+                children.insert(entry_name.clone(), node);
             }
         }
     }
