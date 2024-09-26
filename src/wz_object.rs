@@ -57,10 +57,6 @@ impl WzNode for WzObject {
 }
 
 impl WzObject {
-    pub const HEADERBYTE_LUA: u8 = 0x1; // TODO: Support lua
-    pub const HEADERBYTE_WITH_OFFSET: u8 = 0x1B;
-    pub const HEADERBYTE_WITHOUT_OFFSET: u8 = 0x73;
-
     fn parse_object(&mut self) -> Result<(), Error> {
         // Seek to this object offset
         self.reader.seek(self.offset as u64)?;
@@ -68,7 +64,7 @@ impl WzObject {
         // This should be a .img
         let byte = self.reader.read_u8()?;
         match byte {
-            WzObject::HEADERBYTE_WITHOUT_OFFSET => {
+            WzReader::HEADERBYTE_WITHOUT_OFFSET => {
                 let prop = self.reader.read_wz_string()?;
                 let val = self.reader.read_u16()?;
                 if prop != "Property" || val != 0 {

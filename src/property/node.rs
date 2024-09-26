@@ -39,14 +39,12 @@ pub fn parse_img(
     reader: &Arc<WzReader>,
     offset: u32,
 ) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
-    const HEADERBYTE_WITHOUT_OFFSET: u8 = 0x73;
-
     reader.seek(offset as u64)?;
 
     // Read the first byte and check that this node is a .img
     let byte = reader.read_u8()?;
     match byte {
-        HEADERBYTE_WITHOUT_OFFSET => {
+        WzReader::HEADERBYTE_WITHOUT_OFFSET => {
             let prop = reader.read_wz_string()?;
             let val = reader.read_u16()?;
             if prop != "Property" || val != 0 {

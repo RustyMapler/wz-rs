@@ -1,4 +1,4 @@
-use crate::{WzDirectory, WzObject, WzReader};
+use crate::{WzDirectory, WzReader};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -106,8 +106,8 @@ fn test_version_and_version_hash(
         reader.seek(object.offset.into())?;
 
         let test_byte = reader.read_u8()?;
-        if test_byte != WzObject::HEADERBYTE_WITHOUT_OFFSET
-            && test_byte != WzObject::HEADERBYTE_WITH_OFFSET
+        if test_byte != WzReader::HEADERBYTE_WITHOUT_OFFSET
+            && test_byte != WzReader::HEADERBYTE_WITH_OFFSET
         {
             return Err(Error::new(ErrorKind::Other, "Failed byte test for object"));
         }
