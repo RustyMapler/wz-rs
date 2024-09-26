@@ -2,8 +2,9 @@ use std::fmt;
 
 use crate::{Vec2, WzCanvas, WzSound};
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum WzValue {
+    #[default]
     Null,
     Directory,
     Img,
@@ -19,12 +20,6 @@ pub enum WzValue {
     Canvas(WzCanvas),
     Sound(WzSound),
     Uol(String),
-}
-
-impl Default for WzValue {
-    fn default() -> Self {
-        Self::Null
-    }
 }
 
 impl fmt::Display for WzValue {
