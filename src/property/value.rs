@@ -12,6 +12,7 @@ pub struct WzSound {
 #[derive(Debug, Clone)]
 pub enum WzValue {
     Null,
+    Directory,
     Img,
     Extended,
     Short(i16),

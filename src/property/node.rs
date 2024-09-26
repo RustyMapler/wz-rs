@@ -34,6 +34,83 @@ impl DynamicWzNode {
     }
 }
 
+pub fn parse_dir(
+    name: String,
+    reader: &Arc<WzReader>,
+    offset: u32,
+) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
+    let mut children = HashMap::new();
+
+    reader.seek(offset as u64)?;
+
+    let entry_count = reader.read_wz_int()?;
+    for _ in 0..entry_count {
+        let mut remember_pos = reader.get_position()?;
+        let mut entry_name = String::from("");
+        let mut entry_type = reader.read_u8()?;
+
+        match entry_type {
+            2 => {
+                let offset = reader.read_u32()?;
+                remember_pos = reader.get_position()?;
+
+                reader.seek((*reader.file_start.borrow() + offset) as u64)?;
+
+                entry_type = reader.read_u8()?;
+                entry_name = reader.read_wz_string()?;
+            }
+            3 | 4 => {
+                entry_name = reader.read_wz_string()?;
+                remember_pos = reader.get_position()?;
+            }
+            _ => {}
+        }
+
+        // Seek back to the original position
+        reader.seek(remember_pos)?;
+
+        // Fetch some additional info
+        let fsize = reader.read_wz_int()?;
+        let checksum = reader.read_wz_int()?;
+        let offset = reader.read_wz_offset()?;
+
+        log::trace!("entry: {} {}", entry_type, entry_name);
+        log::trace!("fsize {}, checksum {}, offset {}", fsize, checksum, offset);
+
+        // Build directories and .imgs
+        match entry_type {
+            3 => {
+                let mut entry_children = HashMap::new();
+                entry_children.insert(
+                    entry_name.clone(),
+                    parse_dir(entry_name.clone(), reader, offset)?,
+                );
+
+                let node = DynamicWzNode::new_with_children(
+                    &entry_name,
+                    WzValue::Directory,
+                    entry_children,
+                );
+                children.insert(entry_name.clone(), Arc::new(node));
+            }
+            _ => {
+                let mut entry_children = HashMap::new();
+                entry_children.insert(
+                    entry_name.clone(),
+                    parse_img(entry_name.clone(), reader, offset)?,
+                );
+
+                let node =
+                    DynamicWzNode::new_with_children(&entry_name, WzValue::Img, entry_children);
+                children.insert(entry_name.clone(), Arc::new(node));
+            }
+        }
+    }
+
+    let node = DynamicWzNode::new_with_children(&name, WzValue::Directory, children);
+    Ok(Arc::new(node))
+}
+
 pub fn parse_img(
     name: String,
     reader: &Arc<WzReader>,
@@ -61,11 +138,11 @@ pub fn parse_img(
     }
 
     // Continue parsing all properties for this node
-    if let Ok(properties) = parse_property(reader, offset) {
+    if let Ok(children) = parse_property(reader, offset) {
         Ok(Arc::new(DynamicWzNode::new_with_children(
             &name,
             WzValue::Img,
-            properties,
+            children,
         )))
     } else {
         Ok(Arc::new(DynamicWzNode::new(&name, WzValue::Img)))
@@ -76,7 +153,7 @@ pub fn parse_property(
     reader: &Arc<WzReader>,
     offset: u32,
 ) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
-    let mut properties = HashMap::new();
+    let mut children = HashMap::new();
 
     let num_entries = reader.read_wz_int()?;
     for _ in 0..num_entries {
@@ -114,10 +191,10 @@ pub fn parse_property(
                 DynamicWzNode::new(&name, WzValue::String(value))
             }
             9 => {
-                let buffer = reader.read_u32()? + reader.get_position()? as u32;
-                let properties = parse_extended_property(name.clone(), reader, offset)?;
-                reader.seek(buffer as u64)?;
-                DynamicWzNode::new_with_children(&name, WzValue::Extended, properties)
+                let remember_pos = reader.read_u32()? + reader.get_position()? as u32;
+                let extended_children = parse_extended_property(name.clone(), reader, offset)?;
+                reader.seek(remember_pos as u64)?;
+                DynamicWzNode::new_with_children(&name, WzValue::Extended, extended_children)
             }
             _ => {
                 log::warn!("unsupported property type: {}, {}", name, property_type);
@@ -125,10 +202,10 @@ pub fn parse_property(
             }
         };
 
-        properties.insert(name, Arc::new(node));
+        children.insert(name, Arc::new(node));
     }
 
-    Ok(properties)
+    Ok(children)
 }
 
 pub fn parse_extended_property(
@@ -136,13 +213,13 @@ pub fn parse_extended_property(
     reader: &Arc<WzReader>,
     offset: u32,
 ) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
-    let mut extended_properties = HashMap::new();
+    let mut extended_children = HashMap::new();
 
     let extended_property_type = reader.read_string_block(offset)?;
     match extended_property_type.as_str() {
         "Property" => {
             reader.skip(2)?;
-            extended_properties.extend(parse_property(&reader, offset)?);
+            extended_children.extend(parse_property(&reader, offset)?);
         }
         "Canvas" => {
             // TODO
@@ -152,7 +229,7 @@ pub fn parse_extended_property(
             let y = reader.read_wz_int()?;
 
             let node = DynamicWzNode::new(&name, WzValue::Vector(x, y));
-            extended_properties.insert(name.clone(), Arc::new(node));
+            extended_children.insert(name.clone(), Arc::new(node));
         }
         "Shape2D#Convex2D" => {
             // TODO
@@ -194,13 +271,13 @@ pub fn parse_extended_property(
             };
 
             let node = DynamicWzNode::new(&name, WzValue::Sound(sound));
-            extended_properties.insert(name.clone(), Arc::new(node));
+            extended_children.insert(name.clone(), Arc::new(node));
         }
         "UOL" => {
             reader.skip(1)?;
             let value = reader.read_string_block(offset)?;
             let node = DynamicWzNode::new(&name, WzValue::Uol(value));
-            extended_properties.insert(name.clone(), Arc::new(node));
+            extended_children.insert(name.clone(), Arc::new(node));
         }
         _ => {
             let error_type = ErrorKind::Unsupported;
@@ -212,5 +289,5 @@ pub fn parse_extended_property(
         }
     }
 
-    Ok(extended_properties)
+    Ok(extended_children)
 }
