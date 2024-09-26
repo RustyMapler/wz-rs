@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Weak},
+    io::{Error, ErrorKind},
+    sync::Arc,
 };
 
 use crate::WzReader;
@@ -10,41 +11,73 @@ use super::{WzSound, WzValue};
 pub struct DynamicWzNode {
     pub name: String,
     pub value: WzValue,
-    pub parent: Weak<DynamicWzNode>,
     pub children: HashMap<String, Arc<DynamicWzNode>>,
 }
 
 pub type ArcDynamicWzNode = Arc<DynamicWzNode>;
 
 impl DynamicWzNode {
-    pub fn new(
-        name: &String,
-        value: impl Into<WzValue>,
-        parent: Option<&ArcDynamicWzNode>,
-    ) -> Self {
-        Self::new_with_children(name, value, parent, HashMap::new())
+    pub fn new(name: &String, value: impl Into<WzValue>) -> Self {
+        Self::new_with_children(name, value, HashMap::new())
     }
 
     pub fn new_with_children(
         name: &String,
         value: impl Into<WzValue>,
-        parent: Option<&ArcDynamicWzNode>,
         children: HashMap<String, Arc<DynamicWzNode>>,
     ) -> Self {
         Self {
             name: name.clone(),
             value: value.into(),
-            parent: parent.map(Arc::downgrade).unwrap_or_default(),
             children,
         }
     }
 }
 
-pub fn parse_property(
-    parent: Option<&ArcDynamicWzNode>,
+pub fn parse_img(
+    name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<HashMap<String, Arc<DynamicWzNode>>, Box<dyn std::error::Error>> {
+) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
+    const HEADERBYTE_WITHOUT_OFFSET: u8 = 0x73;
+
+    reader.seek(offset as u64)?;
+
+    // Read the first byte and check that this node is a .img
+    let byte = reader.read_u8()?;
+    match byte {
+        HEADERBYTE_WITHOUT_OFFSET => {
+            let prop = reader.read_wz_string()?;
+            let val = reader.read_u16()?;
+            if prop != "Property" || val != 0 {
+                let error_type = ErrorKind::Unsupported;
+                let error_message = format!("Unsupported .img type: {} {}", prop, val);
+                Err(Box::new(Error::new(error_type, error_message)))?
+            }
+        }
+        _ => {
+            let error_type = ErrorKind::Unsupported;
+            let error_message = format!("Unsupported .img header: {}", byte);
+            Err(Box::new(Error::new(error_type, error_message)))?
+        }
+    }
+
+    // Continue parsing all properties for this node
+    if let Ok(properties) = parse_property(reader, offset) {
+        Ok(Arc::new(DynamicWzNode::new_with_children(
+            &name,
+            WzValue::Img,
+            properties,
+        )))
+    } else {
+        Ok(Arc::new(DynamicWzNode::new(&name, WzValue::Img)))
+    }
+}
+
+pub fn parse_property(
+    reader: &Arc<WzReader>,
+    offset: u32,
+) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
     let mut properties = HashMap::new();
 
     let num_entries = reader.read_wz_int()?;
@@ -54,40 +87,39 @@ pub fn parse_property(
         let property_type = reader.read_u8()?;
 
         let node = match property_type {
-            0 => DynamicWzNode::new(&name, WzValue::Null, parent),
+            0 => DynamicWzNode::new(&name, WzValue::Null),
             2 | 11 => {
                 let value = reader.read_i16()?;
-                DynamicWzNode::new(&name, WzValue::Short(value), parent)
+                DynamicWzNode::new(&name, WzValue::Short(value))
             }
             3 | 19 => {
                 let value = reader.read_wz_int()?;
-                DynamicWzNode::new(&name, WzValue::Int(value), parent)
+                DynamicWzNode::new(&name, WzValue::Int(value))
             }
             20 => {
                 let value = reader.read_wz_long()?;
-                DynamicWzNode::new(&name, WzValue::Long(value), parent)
+                DynamicWzNode::new(&name, WzValue::Long(value))
             }
             4 => {
                 let value = match reader.read_u8()? {
                     0x80 => reader.read_f32()?,
                     _ => 0.0,
                 };
-                DynamicWzNode::new(&name, WzValue::Float(value), parent)
+                DynamicWzNode::new(&name, WzValue::Float(value))
             }
             5 => {
                 let value = reader.read_f64()?;
-                DynamicWzNode::new(&name, WzValue::Double(value), parent)
+                DynamicWzNode::new(&name, WzValue::Double(value))
             }
             8 => {
                 let value = reader.read_string_block(offset)?;
-                DynamicWzNode::new(&name, WzValue::String(value), parent)
+                DynamicWzNode::new(&name, WzValue::String(value))
             }
             9 => {
-                let eob = reader.read_u32()? + reader.get_position()? as u32;
-                let extended = parse_extended_property(parent, reader, offset, name.clone())?;
-                reader.seek(eob as u64)?;
-
-                DynamicWzNode::new_with_children(&name, WzValue::Null, parent, extended)
+                let buffer = reader.read_u32()? + reader.get_position()? as u32;
+                let properties = parse_extended_property(name.clone(), reader, offset)?;
+                reader.seek(buffer as u64)?;
+                DynamicWzNode::new_with_children(&name, WzValue::Extended, properties)
             }
             _ => {
                 log::warn!("unsupported property type: {}, {}", name, property_type);
@@ -102,18 +134,17 @@ pub fn parse_property(
 }
 
 pub fn parse_extended_property(
-    parent: Option<&ArcDynamicWzNode>,
+    name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-    property_name: String,
-) -> Result<HashMap<String, Arc<DynamicWzNode>>, Box<dyn std::error::Error>> {
-    let mut properties = HashMap::new();
+) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
+    let mut extended_properties = HashMap::new();
 
-    let property_type = reader.read_string_block(offset)?;
-    match property_type.as_str() {
+    let extended_property_type = reader.read_string_block(offset)?;
+    match extended_property_type.as_str() {
         "Property" => {
             reader.skip(2)?;
-            properties.extend(parse_property(parent, &reader, offset)?);
+            extended_properties.extend(parse_property(&reader, offset)?);
         }
         "Canvas" => {
             // TODO
@@ -122,14 +153,8 @@ pub fn parse_extended_property(
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            properties.insert(
-                property_name.clone(),
-                Arc::new(DynamicWzNode::new(
-                    &property_name,
-                    WzValue::Vector(x, y),
-                    parent,
-                )),
-            );
+            let node = DynamicWzNode::new(&name, WzValue::Vector(x, y));
+            extended_properties.insert(name.clone(), Arc::new(node));
         }
         "Shape2D#Convex2D" => {
             // TODO
@@ -170,34 +195,24 @@ pub fn parse_extended_property(
                 data_len: data_len as u32,
             };
 
-            properties.insert(
-                property_name.clone(),
-                Arc::new(DynamicWzNode::new(
-                    &property_name,
-                    WzValue::Sound(sound),
-                    parent,
-                )),
-            );
+            let node = DynamicWzNode::new(&name, WzValue::Sound(sound));
+            extended_properties.insert(name.clone(), Arc::new(node));
         }
         "UOL" => {
             reader.skip(1)?;
             let value = reader.read_string_block(offset)?;
-
-            properties.insert(
-                property_name.clone(),
-                Arc::new(DynamicWzNode::new(
-                    &property_name,
-                    WzValue::Uol(value),
-                    parent,
-                )),
-            );
+            let node = DynamicWzNode::new(&name, WzValue::Uol(value));
+            extended_properties.insert(name.clone(), Arc::new(node));
         }
         _ => {
-            let error_type = std::io::ErrorKind::Unsupported;
-            let error_message = format!("Unsupported extended property type: {}", property_type);
-            Err(Box::new(std::io::Error::new(error_type, error_message)))?
+            let error_type = ErrorKind::Unsupported;
+            let error_message = format!(
+                "Unsupported extended property type: {}",
+                extended_property_type
+            );
+            Err(Box::new(Error::new(error_type, error_message)))?
         }
     }
 
-    Ok(properties)
+    Ok(extended_properties)
 }
