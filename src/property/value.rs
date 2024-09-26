@@ -1,15 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Clone)]
-pub struct WzSound {
-    pub offset: u32,
-    pub len: u32,
-    pub header_offset: u64,
-    pub header: Vec<u8>,
-    pub data_offset: u64,
-    pub data: Vec<u8>,
-    pub data_len: u32,
-}
+use crate::{Vec2, WzSound};
 
 #[derive(Debug, Clone)]
 pub enum WzValue {
@@ -23,7 +14,7 @@ pub enum WzValue {
     Float(f32),
     Double(f64),
     String(String),
-    Vector(i32, i32),
+    Vector(Vec2),
     Sound(WzSound),
     Uol(String),
 }
@@ -47,12 +38,8 @@ impl fmt::Display for WzValue {
             WzValue::Float(val) => write!(f, "Float({})", val),
             WzValue::Double(val) => write!(f, "Double({})", val),
             WzValue::String(val) => write!(f, "String({})", val),
-            WzValue::Vector(x, y) => write!(f, "Vector({}, {})", x, y),
-            WzValue::Sound(sound) => write!(
-                f,
-                "Sound(offset: {}, len: {}, header_offset: {}, data_offset: {}, data_len: {})",
-                sound.offset, sound.len, sound.header_offset, sound.data_offset, sound.data_len
-            ),
+            WzValue::Vector(val) => write!(f, "Vector({})", val),
+            WzValue::Sound(val) => write!(f, "Sound({})", val),
             WzValue::Uol(val) => write!(f, "Uol({})", val),
         }
     }

@@ -1,12 +1,10 @@
+use super::WzValue;
+use crate::{Vec2, WzReader, WzSound};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
 };
-
-use crate::WzReader;
-
-use super::{WzSound, WzValue};
 
 pub struct DynamicWzNode {
     pub name: String,
@@ -279,7 +277,7 @@ pub fn parse_extended_property(
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            let node = DynamicWzNode::new(&name, WzValue::Vector(x, y));
+            let node = DynamicWzNode::new(&name, WzValue::Vector(Vec2 { x, y }));
             extended_children.insert(name.clone(), Arc::new(node));
         }
         "Shape2D#Convex2D" => {
