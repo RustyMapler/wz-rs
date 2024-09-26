@@ -256,7 +256,8 @@ impl WzReader {
             }
 
             res_string.push(encrypted_char as u8);
-            mask += 1;
+
+            mask = mask.wrapping_add(1);
         }
 
         match String::from_utf8(res_string) {
