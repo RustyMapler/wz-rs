@@ -1,5 +1,5 @@
 use super::WzValue;
-use crate::{Vec2, WzReader, WzSound};
+use crate::{Vec2, WzCanvas, WzReader, WzSound};
 use std::{
     collections::HashMap,
     fmt,
@@ -210,9 +210,9 @@ pub fn parse_property(
             }
             9 => {
                 let remember_pos = reader.read_u32()? + reader.get_position()? as u32;
-                let extended_children = parse_extended_property(name.clone(), reader, offset)?;
+                let extended_node = parse_extended_property(name.clone(), reader, offset)?;
                 reader.seek(remember_pos as u64)?;
-                DynamicWzNode::new_with_children(&name, WzValue::Extended, extended_children)
+                extended_node
             }
             _ => {
                 log::warn!("unsupported property type: {}, {}", name, property_type);
@@ -230,76 +230,75 @@ pub fn parse_extended_property(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<HashMap<String, ArcDynamicWzNode>, Error> {
+) -> Result<DynamicWzNode, Error> {
     log::trace!(
         "parse_extended_property | name({}) offset({})",
         name,
         offset
     );
-
-    let mut extended_children = HashMap::new();
-
     let extended_property_type = reader.read_string_block(offset)?;
-    match extended_property_type.as_str() {
+    let node = match extended_property_type.as_str() {
         "Property" => {
             reader.skip(2)?;
             let properties = parse_property(reader, offset)?;
-            extended_children.extend(properties);
+            DynamicWzNode::new_with_children(&name, WzValue::Extended, properties)
         }
         "Canvas" => {
-            // reader.skip(1)?;
+            reader.skip(1)?;
+            let mut properties = HashMap::new();
 
-            // let byte = reader.read_u8()?;
+            let byte = reader.read_u8()?;
+            if byte == 1 {
+                reader.skip(2)?;
+                properties = parse_property(reader, offset)?;
+            }
 
-            // let mut properties = HashMap::new();
-            // if byte == 1 {
-            //     reader.skip(2)?;
-            //     properties = parse_property(reader, offset)?;
-            // }
+            let width = reader.read_wz_int()? as u32;
+            let height = reader.read_wz_int()? as u32;
+            let format1 = reader.read_wz_int()? as u32;
+            let format2 = reader.read_u8()?;
 
-            // let width = reader.read_wz_int()? as u32;
-            // let height = reader.read_wz_int()? as u32;
-            // let format1 = reader.read_wz_int()? as u32;
-            // let format2 = reader.read_u8()?;
+            reader.skip(4)?;
 
-            // reader.skip(4)?;
-            // let offset = reader.get_position()? as u32;
+            let offset = reader.get_position()? as u32;
+            let len = reader.read_i32()? - 1;
 
-            // let len = reader.read_i32()? - 1;
+            reader.skip(1)?;
 
-            // reader.skip(1)?;
+            // Skip reading this for now
+            // TODO: Fix
+            if len > 0 {
+                reader.skip(len as usize)?;
+            }
 
-            // if len > 0 {
-            //     reader.skip(len as usize)?;
-            // }
-
-            // let node = DynamicWzNode::new(&name, WzValue::Null);
-
-            // extended_children.insert(name.clone(), Arc::new(node));
+            DynamicWzNode::new_with_children(
+                &name,
+                WzValue::Canvas(WzCanvas {
+                    width,
+                    height,
+                    format1,
+                    format2,
+                    offset,
+                }),
+                properties,
+            )
         }
         "Shape2D#Vector2D" => {
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            let node = DynamicWzNode::new(&name, WzValue::Vector(Vec2 { x, y }));
-            extended_children.insert(name.clone(), Arc::new(node));
+            DynamicWzNode::new(&name, WzValue::Vector(Vec2 { x, y }))
         }
         "Shape2D#Convex2D" => {
-            // let mut properties = HashMap::new();
+            let mut properties = HashMap::new();
 
-            // let num_entries = reader.read_wz_int()?;
-            // for _ in 0..num_entries {
-            //     let convex_properties = parse_extended_property(name.clone(), reader, offset)?;
-            //     let convex_node = DynamicWzNode::new_with_children(
-            //         &name.clone(),
-            //         WzValue::Null,
-            //         convex_properties,
-            //     );
-            //     properties.insert(name.clone(), Arc::new(convex_node));
-            // }
+            let num_entries = reader.read_wz_int()?;
+            for _ in 0..num_entries {
+                let node = parse_extended_property(name.clone(), reader, offset)?;
+                properties.insert(name.clone(), Arc::new(node));
+            }
 
-            // let node = DynamicWzNode::new_with_children(&name, WzValue::Null, properties);
-            // extended_children.insert(name.clone(), Arc::new(node));
+            DynamicWzNode::new_with_children(&name, WzValue::Convex, properties)
         }
         "Sound_DX8" => {
             const SOUND_HEADER: [u8; 51] = [
@@ -337,14 +336,12 @@ pub fn parse_extended_property(
                 data_len: data_len as u32,
             };
 
-            let node = DynamicWzNode::new(&name, WzValue::Sound(sound));
-            extended_children.insert(name.clone(), Arc::new(node));
+            DynamicWzNode::new(&name, WzValue::Sound(sound))
         }
         "UOL" => {
             reader.skip(1)?;
             let value = reader.read_string_block(offset)?;
-            let node = DynamicWzNode::new(&name, WzValue::Uol(value));
-            extended_children.insert(name.clone(), Arc::new(node));
+            DynamicWzNode::new(&name, WzValue::Uol(value))
         }
         _ => {
             let error_type = ErrorKind::Unsupported;
@@ -354,9 +351,9 @@ pub fn parse_extended_property(
             );
             Err(Error::new(error_type, error_message))?
         }
-    }
+    };
 
-    Ok(extended_children)
+    Ok(node)
 }
 
 // Function to recursively print the node names and their children

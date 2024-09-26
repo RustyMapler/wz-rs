@@ -15,7 +15,7 @@ impl fmt::Display for WzSound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Sound(offset: {}, len: {}, header_offset: {}, data_offset: {}, data_len: {})",
+            "WzSound(offset: {}, len: {}, header_offset: {}, data_offset: {}, data_len: {})",
             self.offset, self.len, self.header_offset, self.data_offset, self.data_len
         )
     }
