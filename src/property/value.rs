@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, Clone)]
 pub struct WzSound {
     pub offset: u32,
@@ -29,5 +31,29 @@ pub enum WzValue {
 impl Default for WzValue {
     fn default() -> Self {
         Self::Null
+    }
+}
+
+impl fmt::Display for WzValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WzValue::Null => write!(f, "Null"),
+            WzValue::Directory => write!(f, "Directory"),
+            WzValue::Img => write!(f, "Img"),
+            WzValue::Extended => write!(f, "Extended"),
+            WzValue::Short(val) => write!(f, "Short({})", val),
+            WzValue::Int(val) => write!(f, "Int({})", val),
+            WzValue::Long(val) => write!(f, "Long({})", val),
+            WzValue::Float(val) => write!(f, "Float({})", val),
+            WzValue::Double(val) => write!(f, "Double({})", val),
+            WzValue::String(val) => write!(f, "String({})", val),
+            WzValue::Vector(x, y) => write!(f, "Vector({}, {})", x, y),
+            WzValue::Sound(sound) => write!(
+                f,
+                "Sound(offset: {}, len: {}, header_offset: {}, data_offset: {}, data_len: {})",
+                sound.offset, sound.len, sound.header_offset, sound.data_offset, sound.data_len
+            ),
+            WzValue::Uol(val) => write!(f, "Uol({})", val),
+        }
     }
 }
