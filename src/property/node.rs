@@ -63,9 +63,10 @@ pub fn resolve(node: &Arc<DynamicWzNode>, path: &str) -> Result<Arc<DynamicWzNod
         if let Some(child) = current_node.children.get(*part) {
             current_node = Arc::clone(child);
         } else {
-            let error_type = ErrorKind::NotFound;
-            let error_message = format!("Child node '{}' not found.", part);
-            Err(Error::new(error_type, error_message))?
+            Err(Error::new(
+                ErrorKind::NotFound,
+                format!("Child node '{}' not found.", part),
+            ))?
         }
     }
 

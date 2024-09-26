@@ -101,16 +101,16 @@ pub fn parse_img(
             let prop = reader.read_wz_string()?;
             let val = reader.read_u16()?;
             if prop != "Property" || val != 0 {
-                let error_type = ErrorKind::Unsupported;
-                let error_message = format!("Unsupported .img type: {} {}", prop, val);
-                Err(Error::new(error_type, error_message))?
+                Err(Error::new(
+                    ErrorKind::Unsupported,
+                    format!("Unsupported .img type: {} {}", prop, val),
+                ))?
             }
         }
-        _ => {
-            let error_type = ErrorKind::Unsupported;
-            let error_message = format!("Unsupported .img header: {}", byte);
-            Err(Error::new(error_type, error_message))?
-        }
+        _ => Err(Error::new(
+            ErrorKind::Unsupported,
+            format!("Unsupported .img header: {}", byte),
+        ))?,
     }
 
     // Continue parsing all properties for this node
@@ -260,14 +260,6 @@ pub fn parse_extended_property(
             DynamicWzNode::new_with_children(&name, WzValue::Convex, properties)
         }
         "Sound_DX8" => {
-            const SOUND_HEADER: [u8; 51] = [
-                0x02, 0x83, 0xEB, 0x36, 0xE4, 0x4F, 0x52, 0xCE, 0x11, 0x9F, 0x53, 0x00, 0x20, 0xAF,
-                0x0B, 0xA7, 0x70, 0x8B, 0xEB, 0x36, 0xE4, 0x4F, 0x52, 0xCE, 0x11, 0x9F, 0x53, 0x00,
-                0x20, 0xAF, 0x0B, 0xA7, 0x70, 0x00, 0x01, 0x81, 0x9F, 0x58, 0x05, 0x56, 0xC3, 0xCE,
-                0x11, 0xBF, 0x01, 0x00, 0xAA, 0x00, 0x55, 0x59, 0x5A,
-            ];
-
-            // Skip the first byte
             reader.skip(1)?;
 
             let data_len = reader.read_wz_int()?;
@@ -275,10 +267,10 @@ pub fn parse_extended_property(
 
             //  Read the header
             let header_offset = reader.get_position()?;
-            reader.skip(SOUND_HEADER.len())?;
+            reader.skip(WzSound::SOUND_HEADER.len())?;
             let wav_len = reader.read_u8()?;
             reader.seek(header_offset)?;
-            let header_len = SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
+            let header_len = WzSound::SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
             let header = reader.read_bytes(header_len)?;
 
             // Read the data
@@ -302,14 +294,13 @@ pub fn parse_extended_property(
             let value = reader.read_string_block(offset)?;
             DynamicWzNode::new(&name, WzValue::Uol(value))
         }
-        _ => {
-            let error_type = ErrorKind::Unsupported;
-            let error_message = format!(
+        _ => Err(Error::new(
+            ErrorKind::Unsupported,
+            format!(
                 "Unsupported extended property type: {}",
                 extended_property_type
-            );
-            Err(Error::new(error_type, error_message))?
-        }
+            ),
+        ))?,
     };
 
     Ok(node)
