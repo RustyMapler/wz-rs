@@ -1,5 +1,5 @@
 use crate::{
-    determine_version, get_iv_for_version, get_version_offset, parse_dir, resolve_uol_path,
+    determine_version, get_iv_for_version, get_version_offset, parse_directory, resolve_uol_path,
     wz_crypto::generate_wz_key, ArcDynamicWzNode, WzDirectory, WzNode, WzReader, WzVersion,
     INVALID_VERSION,
 };
@@ -118,7 +118,7 @@ impl WzFile {
     pub fn parse_main_dir(&mut self) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
         let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
 
-        let node = parse_dir(self.name.clone(), &self.reader.clone(), offset)?;
+        let node = parse_directory(self.name.clone(), &self.reader.clone(), offset)?;
 
         Ok(node)
     }

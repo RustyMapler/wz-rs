@@ -28,7 +28,7 @@ impl DynamicWzNode {
     ) -> Self {
         let value = value.into();
         log::trace!(
-            "New Node | name {}, value {:?}, num children {}",
+            "New Node | name({}), value({:?}), children({})",
             name,
             value,
             children.capacity()
@@ -41,12 +41,12 @@ impl DynamicWzNode {
     }
 }
 
-pub fn parse_dir(
+pub fn parse_directory(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
-    log::trace!("parse_dir at {} {}", name, offset);
+) -> Result<ArcDynamicWzNode, Error> {
+    log::trace!("parse_directory | name({}) offset({})", name, offset);
 
     let mut children = HashMap::new();
 
@@ -86,7 +86,7 @@ pub fn parse_dir(
         let entry_offset = reader.read_wz_offset()?;
 
         log::trace!(
-            "entry: type {}, name {}, fsize {}, checksum {}, offset {}",
+            "entry | type({}) name({}) fsize({}) checksum({}) offset({})",
             entry_type,
             entry_name,
             entry_fsize,
@@ -101,7 +101,7 @@ pub fn parse_dir(
                 let mut entry_children = HashMap::new();
                 entry_children.insert(
                     entry_name.clone(),
-                    parse_dir(entry_name.clone(), reader, entry_offset)?,
+                    parse_directory(entry_name.clone(), reader, entry_offset)?,
                 );
                 reader.seek(remember_pos)?;
 
@@ -136,8 +136,8 @@ pub fn parse_img(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
-    log::trace!("parse_img at {} {}", name, offset);
+) -> Result<ArcDynamicWzNode, Error> {
+    log::trace!("parse_img | name({}) offset({})", name, offset);
 
     reader.seek(offset as u64)?;
 
@@ -150,13 +150,13 @@ pub fn parse_img(
             if prop != "Property" || val != 0 {
                 let error_type = ErrorKind::Unsupported;
                 let error_message = format!("Unsupported .img type: {} {}", prop, val);
-                Err(Box::new(Error::new(error_type, error_message)))?
+                Err(Error::new(error_type, error_message))?
             }
         }
         _ => {
             let error_type = ErrorKind::Unsupported;
             let error_message = format!("Unsupported .img header: {}", byte);
-            Err(Box::new(Error::new(error_type, error_message)))?
+            Err(Error::new(error_type, error_message))?
         }
     }
 
@@ -175,8 +175,8 @@ pub fn parse_img(
 pub fn parse_property(
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
-    log::trace!("parse_property at {}", offset);
+) -> Result<HashMap<String, ArcDynamicWzNode>, Error> {
+    log::trace!("parse_property | offset({})", offset);
 
     let mut children = HashMap::new();
 
@@ -236,8 +236,12 @@ pub fn parse_extended_property(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<HashMap<String, ArcDynamicWzNode>, Box<dyn std::error::Error>> {
-    log::trace!("parse_extended_property at {} {}", name, offset);
+) -> Result<HashMap<String, ArcDynamicWzNode>, Error> {
+    log::trace!(
+        "parse_extended_property | name({}) offset({})",
+        name,
+        offset
+    );
 
     let mut extended_children = HashMap::new();
 
@@ -357,7 +361,7 @@ pub fn parse_extended_property(
                 "Unsupported extended property type: {}",
                 extended_property_type
             );
-            Err(Box::new(Error::new(error_type, error_message)))?
+            Err(Error::new(error_type, error_message))?
         }
     }
 
