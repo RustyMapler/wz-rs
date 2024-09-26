@@ -2,6 +2,7 @@ use super::WzValue;
 use crate::{Vec2, WzReader, WzSound};
 use std::{
     collections::HashMap,
+    fmt,
     io::{Error, ErrorKind},
     sync::Arc,
 };
@@ -24,18 +25,24 @@ impl DynamicWzNode {
         value: impl Into<WzValue>,
         children: HashMap<String, Arc<DynamicWzNode>>,
     ) -> Self {
-        let value = value.into();
-        log::trace!(
-            "New Node | name({}), value({:?}), children({})",
-            name,
-            value,
-            children.capacity()
-        );
-        Self {
+        let result = Self {
             name: name.clone(),
-            value,
+            value: value.into(),
             children,
-        }
+        };
+        log::trace!("node::new | {}", result);
+        result
+    }
+}
+
+impl fmt::Display for DynamicWzNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let children: Vec<String> = self.children.keys().cloned().collect();
+        write!(
+            f,
+            "name(\"{}\"), value({:?}), children({:?})",
+            self.name, self.value, children
+        )
     }
 }
 
@@ -236,11 +243,8 @@ pub fn parse_extended_property(
     match extended_property_type.as_str() {
         "Property" => {
             reader.skip(2)?;
-
             let properties = parse_property(reader, offset)?;
-            let node = DynamicWzNode::new_with_children(&name, WzValue::Extended, properties);
-
-            extended_children.insert(name.clone(), Arc::new(node));
+            extended_children.extend(properties);
         }
         "Canvas" => {
             // reader.skip(1)?;
