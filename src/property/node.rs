@@ -367,3 +367,31 @@ pub fn parse_extended_property(
 
     Ok(extended_children)
 }
+
+// Function to recursively print the node names and their children
+pub fn print_node(node: &Arc<DynamicWzNode>, depth: usize) {
+    let indent = "-".repeat(depth);
+    println!("{}{}({})", indent, node.name, node.value);
+
+    for child in node.children.values() {
+        print_node(child, depth + 1)
+    }
+}
+
+// Function to resolve a path to a child node
+pub fn resolve(node: &Arc<DynamicWzNode>, path: &str) -> Result<Arc<DynamicWzNode>, Error> {
+    let parts: Vec<&str> = path.split('/').collect();
+    let mut current_node = Arc::clone(node);
+
+    for part in parts.iter() {
+        if let Some(child) = current_node.children.get(*part) {
+            current_node = Arc::clone(child);
+        } else {
+            let error_type = ErrorKind::NotFound;
+            let error_message = format!("Child node '{}' not found.", part);
+            Err(Error::new(error_type, error_message))?
+        }
+    }
+
+    Ok(current_node)
+}

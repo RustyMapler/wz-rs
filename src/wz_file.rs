@@ -115,7 +115,7 @@ impl WzFile {
         Ok(())
     }
 
-    pub fn parse_main_dir(&mut self) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
+    pub fn parse_root_directory(&mut self) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
         let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
 
         let node = parse_directory(self.name.clone(), &self.reader.clone(), offset)?;
