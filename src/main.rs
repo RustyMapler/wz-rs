@@ -2,22 +2,34 @@ extern crate wz;
 
 use std::io;
 use std::time::Instant;
-use wz::{WzFile, WzVersion};
+use wz::{print_node, resolve, WzCanvas, WzFile, WzValue, WzValueCast, WzVersion};
 
 fn main() -> io::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
     let now = Instant::now();
 
-    let mut map_wz = WzFile::new("assets/Map.wz", WzVersion::GMS);
-    map_wz.open()?;
+    let mut wz_file = WzFile::new("assets/Map.wz", WzVersion::GMS);
+    wz_file.open()?;
 
-    if let Some(node) = map_wz.resolve("MapHelper.img/weather/snow") {
+    // New way
+
+    let node = wz_file.parse_root_directory().unwrap();
+    // print_node(&node, 0);
+
+    let resolved_node = resolve(&node, "MapHelper.img/weather/snow/0")?;
+    log::info!("node: {}", resolved_node.name);
+
+    if let Some(canvas) = resolved_node.value.as_canvas() {
+        log::info!("Canvas: {:?}", canvas);
+    }
+
+    // Old way
+
+    wz_file.parse_wz_main_directory()?;
+
+    if let Some(node) = wz_file.resolve("MapHelper.img/weather/snow") {
         log::info!("node: {}", node.get_name());
-
-        for (child, _) in node.get_children() {
-            log::info!("child: {}", child);
-        }
     }
 
     let elapsed = now.elapsed();

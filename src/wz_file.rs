@@ -1,6 +1,7 @@
 use crate::{
-    determine_version, get_iv_for_version, get_version_offset, resolve_uol_path,
-    wz_crypto::generate_wz_key, WzDirectory, WzNode, WzReader, WzVersion, INVALID_VERSION,
+    determine_version, get_iv_for_version, get_version_offset, parse_directory, resolve_uol_path,
+    wz_crypto::generate_wz_key, ArcDynamicWzNode, WzDirectory, WzNode, WzReader, WzVersion,
+    INVALID_VERSION,
 };
 use std::{
     collections::HashMap,
@@ -61,8 +62,6 @@ impl WzFile {
 
         self.reader = reader.into();
 
-        self.parse_wz_main_directory()?;
-
         Ok(())
     }
 
@@ -101,7 +100,7 @@ impl WzFile {
     }
 
     /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
-    fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
+    pub fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
         let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
 
         self.root = Some(WzDirectory {
@@ -114,5 +113,13 @@ impl WzFile {
         self.root.as_mut().unwrap().parse_directory(true).unwrap();
 
         Ok(())
+    }
+
+    pub fn parse_root_directory(&mut self) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
+        let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
+
+        let node = parse_directory(self.name.clone(), &self.reader.clone(), offset)?;
+
+        Ok(node)
     }
 }

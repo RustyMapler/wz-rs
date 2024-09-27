@@ -1,4 +1,4 @@
-use crate::{wz_mutable_key::WzMutableKey, wz_object::WzObject};
+use crate::wz_mutable_key::WzMutableKey;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
     cell::RefCell,
@@ -16,6 +16,10 @@ pub struct WzReader {
 }
 
 impl WzReader {
+    pub const HEADERBYTE_LUA: u8 = 0x1;
+    pub const HEADERBYTE_WITH_OFFSET: u8 = 0x1B;
+    pub const HEADERBYTE_WITHOUT_OFFSET: u8 = 0x73;
+
     pub fn new(buffer: Cursor<Vec<u8>>, wz_key: Option<WzMutableKey>) -> WzReader {
         WzReader {
             file: RefCell::new(buffer),
@@ -123,8 +127,8 @@ impl WzReader {
         let string_type = self.read_u8()?;
 
         match string_type {
-            0 | WzObject::HEADERBYTE_WITHOUT_OFFSET => self.read_wz_string(),
-            1 | WzObject::HEADERBYTE_WITH_OFFSET => {
+            0 | WzReader::HEADERBYTE_WITHOUT_OFFSET => self.read_wz_string(),
+            1 | WzReader::HEADERBYTE_WITH_OFFSET => {
                 let another_offset = self.read_u32()?;
                 self.read_wz_string_at_offset(offset + another_offset)
             }
@@ -252,7 +256,8 @@ impl WzReader {
             }
 
             res_string.push(encrypted_char as u8);
-            mask += 1;
+
+            mask = mask.wrapping_add(1);
         }
 
         match String::from_utf8(res_string) {
