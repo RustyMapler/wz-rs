@@ -43,3 +43,66 @@ impl fmt::Display for WzValue {
         }
     }
 }
+
+macro_rules! try_as {
+    ($func_name:ident, $variant:ident, $result:ty) => {
+        fn $func_name(&self) -> Option<&$result> {
+            match self {
+                WzValue::$variant(inner) => Some(inner),
+                _ => None,
+            }
+        }
+    };
+}
+
+pub trait WzValueCast {
+    fn is_null(&self) -> bool;
+    fn is_directory(&self) -> bool;
+    fn is_img(&self) -> bool;
+    fn is_extended(&self) -> bool;
+    fn is_convex(&self) -> bool;
+
+    fn as_short(&self) -> Option<&i16>;
+    fn as_int(&self) -> Option<&i32>;
+    fn as_long(&self) -> Option<&i64>;
+    fn as_float(&self) -> Option<&f32>;
+    fn as_double(&self) -> Option<&f64>;
+    fn as_string(&self) -> Option<&String>;
+    fn as_vector(&self) -> Option<&Vec2>;
+    fn as_canvas(&self) -> Option<&WzCanvas>;
+    fn as_sound(&self) -> Option<&WzSound>;
+    fn as_uol(&self) -> Option<&String>;
+}
+
+impl WzValueCast for WzValue {
+    fn is_null(&self) -> bool {
+        matches!(self, WzValue::Null)
+    }
+
+    fn is_directory(&self) -> bool {
+        matches!(self, WzValue::Directory)
+    }
+
+    fn is_img(&self) -> bool {
+        matches!(self, WzValue::Img)
+    }
+
+    fn is_extended(&self) -> bool {
+        matches!(self, WzValue::Extended)
+    }
+
+    fn is_convex(&self) -> bool {
+        matches!(self, WzValue::Convex)
+    }
+
+    try_as!(as_short, Short, i16);
+    try_as!(as_int, Int, i32);
+    try_as!(as_long, Long, i64);
+    try_as!(as_float, Float, f32);
+    try_as!(as_double, Double, f64);
+    try_as!(as_string, String, String);
+    try_as!(as_vector, Vector, Vec2);
+    try_as!(as_canvas, Canvas, WzCanvas);
+    try_as!(as_sound, Sound, WzSound);
+    try_as!(as_uol, Uol, String);
+}

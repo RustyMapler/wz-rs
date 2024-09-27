@@ -2,7 +2,7 @@ extern crate wz;
 
 use std::io;
 use std::time::Instant;
-use wz::{print_node, resolve, WzFile, WzVersion};
+use wz::{print_node, resolve, WzCanvas, WzFile, WzValue, WzValueCast, WzVersion};
 
 fn main() -> io::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
@@ -15,10 +15,14 @@ fn main() -> io::Result<()> {
     // New way
 
     let node = wz_file.parse_root_directory().unwrap();
-    print_node(&node, 0);
+    // print_node(&node, 0);
 
-    let resolved_node = resolve(&node, "MapHelper.img/weather/snow")?;
+    let resolved_node = resolve(&node, "MapHelper.img/weather/snow/0")?;
     log::info!("node: {}", resolved_node.name);
+
+    if let Some(canvas) = resolved_node.value.as_canvas() {
+        log::info!("Canvas: {:?}", canvas);
+    }
 
     // Old way
 
