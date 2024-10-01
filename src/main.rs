@@ -4,36 +4,58 @@ use std::io;
 use std::time::Instant;
 use wz::{print_node, resolve, WzCanvas, WzFile, WzValue, WzValueCast, WzVersion};
 
+fn time_code_block<F: FnOnce() -> R, R>(f: F, label: &str) -> R {
+    let start = Instant::now();
+    let result = f();
+    let duration = start.elapsed();
+
+    log::info!("{}: Duration: {:?}", label, duration);
+
+    result
+}
+
 fn main() -> io::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
-    let now = Instant::now();
+    let file_path = "assets/Map.wz";
+    let node_path = "MapHelper.img/weather/snow";
 
-    let mut wz_file = WzFile::new("assets/Map.wz", WzVersion::GMS);
+    let mut wz_file = WzFile::new(file_path, WzVersion::GMS);
     wz_file.open()?;
 
-    // New way
+    let root = time_code_block(
+        || {
+            return wz_file.parse_root_directory().unwrap();
+        },
+        "New | parse root",
+    );
 
-    let node = wz_file.parse_root_directory().unwrap();
-    // print_node(&node, 0);
+    time_code_block(
+        || {
+            if let Ok(node) = resolve(&root, node_path) {
+                log::info!("node: {}", node.name);
+            }
+        },
+        &format!("New | resolve {}", node_path),
+    );
 
-    let resolved_node = resolve(&node, "MapHelper.img/weather/snow/0")?;
-    log::info!("node: {}", resolved_node.name);
+    time_code_block(
+        || {
+            wz_file.parse_wz_main_directory().unwrap();
+        },
+        "Old | parse root",
+    );
 
-    if let Some(canvas) = resolved_node.value.as_canvas() {
-        log::info!("Canvas: {:?}", canvas);
-    }
+    time_code_block(
+        || {
+            if let Some(node) = wz_file.resolve(node_path) {
+                log::info!("Found node at path {}: {}", node_path, node.get_name());
+            }
+        },
+        &format!("Old | resolve {}", node_path),
+    );
 
-    // Old way
-
-    wz_file.parse_wz_main_directory()?;
-
-    if let Some(node) = wz_file.resolve("MapHelper.img/weather/snow") {
-        log::info!("node: {}", node.get_name());
-    }
-
-    let elapsed = now.elapsed();
-    log::info!("Elapsed: {:.2?}", elapsed);
+    //print_node(&root, 0);
 
     Ok(())
 }
