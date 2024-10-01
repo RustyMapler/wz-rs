@@ -1,4 +1,4 @@
-use crate::{WzDirectory, WzReader};
+use crate::{parse_directory, ArcWzNode, WzNode, WzReader, WzValueCast};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -79,37 +79,39 @@ fn test_version_and_version_hash(
     let offset = get_version_offset(file_start, version);
     reader.seek(offset as u64)?;
 
-    // Create a new test directory
-    let mut test_directory = WzDirectory {
-        reader: reader.clone(),
-        offset,
-        name: "Test Directory".to_owned(),
-        directories: HashMap::new(),
-        objects: HashMap::new(),
-    };
-
     // Test the root directory and look for other directories
-    test_directory.parse_directory(false)?;
-    if test_directory.directories.is_empty() && test_directory.objects.is_empty() {
+    let node = parse_directory("Test Directory".to_string(), &reader, offset)?;
+    let ref_node = node.as_ref();
+
+    let directories: HashMap<String, Arc<WzNode>> = ref_node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| v.value.is_directory())
+        .collect();
+
+    if directories.is_empty() {
         return Err(Error::new(ErrorKind::Other, "Failed directory test"));
     }
 
+    let objects: HashMap<String, ArcWzNode> = node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| !v.value.is_directory() && !v.value.is_null())
+        .collect();
+
     // If there are objects, check to see if it has the .img header
-    if !test_directory.objects.is_empty() {
-        let object = match test_directory.objects.iter().next() {
+    if !objects.is_empty() {
+        let object: &Arc<crate::WzNode> = match objects.iter().next() {
             Some((_, object)) => object,
             None => {
                 return Err(Error::new(ErrorKind::Other, "Failed to get next object"));
             }
         };
 
-        reader.seek(object.offset.into())?;
-
-        let test_byte = reader.read_u8()?;
-        if test_byte != WzReader::HEADERBYTE_WITHOUT_OFFSET
-            && test_byte != WzReader::HEADERBYTE_WITH_OFFSET
-        {
-            return Err(Error::new(ErrorKind::Other, "Failed byte test for object"));
+        if object.value.is_null() {
+            return Err(Error::new(ErrorKind::Other, "Failed object test"));
         }
     }
 

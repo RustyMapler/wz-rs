@@ -1,10 +1,8 @@
 use crate::{
-    determine_version, get_iv_for_version, get_version_offset, parse_directory, resolve_uol_path,
-    wz_crypto::generate_wz_key, ArcDynamicWzNode, WzDirectory, WzNode, WzReader, WzVersion,
-    INVALID_VERSION,
+    determine_version, get_iv_for_version, get_version_offset, parse_directory,
+    wz_crypto::generate_wz_key, ArcWzNode, WzReader, WzVersion, INVALID_VERSION,
 };
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::{Cursor, Error, ErrorKind, Read},
     path::Path,
@@ -16,7 +14,6 @@ pub struct WzFile {
     pub reader: Arc<WzReader>,
     pub version: i16,
     pub version_hash: u32,
-    pub root: Option<WzDirectory>,
     pub file_path: String,
     pub wz_version: WzVersion,
 }
@@ -31,7 +28,6 @@ impl WzFile {
             reader: Arc::new(WzReader::new(Cursor::new(Vec::new()), None)),
             version: INVALID_VERSION,
             version_hash: 0,
-            root: None,
             wz_version: version,
         }
     }
@@ -65,22 +61,6 @@ impl WzFile {
         Ok(())
     }
 
-    /// Find an object using its pathname
-    pub fn resolve(&mut self, path: &str) -> Option<&mut dyn WzNode> {
-        match self.root.as_mut().unwrap().resolve(path) {
-            Some(node) => {
-                if node.is_uol() {
-                    let resolved_uol_path =
-                        resolve_uol_path(path.to_string(), node.get_uol().unwrap());
-                    return self.root.as_mut().unwrap().resolve(&resolved_uol_path);
-                }
-
-                self.root.as_mut().unwrap().resolve(path)
-            }
-            None => None,
-        }
-    }
-
     /// Parse the header for a .wz file. Get the file start for the reader.
     fn parse_wz_header(reader: &WzReader) -> Result<u32, Error> {
         let ident = reader.read_string(4)?;
@@ -99,23 +79,7 @@ impl WzFile {
         Ok(start)
     }
 
-    /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
-    pub fn parse_wz_main_directory(&mut self) -> Result<(), Error> {
-        let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
-
-        self.root = Some(WzDirectory {
-            reader: self.reader.clone(),
-            offset,
-            name: self.name.clone(),
-            directories: HashMap::new(),
-            objects: HashMap::new(),
-        });
-        self.root.as_mut().unwrap().parse_directory(true).unwrap();
-
-        Ok(())
-    }
-
-    pub fn parse_root_directory(&mut self) -> Result<ArcDynamicWzNode, Box<dyn std::error::Error>> {
+    pub fn parse_root_directory(&mut self) -> Result<ArcWzNode, Box<dyn std::error::Error>> {
         let offset = get_version_offset(*self.reader.file_start.borrow(), self.version);
 
         let node = parse_directory(self.name.clone(), &self.reader.clone(), offset)?;

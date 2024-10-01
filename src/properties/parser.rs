@@ -1,5 +1,5 @@
 use crate::{
-    ArcDynamicWzNode, DynamicWzNode, Vec2, WzCanvas, WzReader, WzSound, WzValue, WzValueCast,
+    ArcWzNode, WzNode, Vec2, WzCanvas, WzReader, WzSound, WzValue, WzValueCast,
 };
 use std::{
     collections::HashMap,
@@ -11,7 +11,7 @@ pub fn parse_directory(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<ArcDynamicWzNode, Error> {
+) -> Result<ArcWzNode, Error> {
     let mut children = HashMap::new();
 
     reader.seek(offset as u64)?;
@@ -83,7 +83,7 @@ pub fn parse_directory(
         }
     }
 
-    let node = DynamicWzNode::new_with_children(&name, WzValue::Directory, children);
+    let node = WzNode::new_with_children(&name, WzValue::Directory, children);
     Ok(Arc::new(node))
 }
 
@@ -91,7 +91,7 @@ pub fn parse_img(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<ArcDynamicWzNode, Error> {
+) -> Result<ArcWzNode, Error> {
     log::trace!("parse_img | name({}) offset({})", name, offset);
 
     reader.seek(offset as u64)?;
@@ -117,20 +117,20 @@ pub fn parse_img(
 
     // Continue parsing all properties for this node
     if let Ok(children) = parse_property_list(reader, offset) {
-        Ok(Arc::new(DynamicWzNode::new_with_children(
+        Ok(Arc::new(WzNode::new_with_children(
             &name,
             WzValue::Img,
             children,
         )))
     } else {
-        Ok(Arc::new(DynamicWzNode::new(&name, WzValue::Img)))
+        Ok(Arc::new(WzNode::new(&name, WzValue::Img)))
     }
 }
 
 pub fn parse_property_list(
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<HashMap<String, ArcDynamicWzNode>, Error> {
+) -> Result<HashMap<String, ArcWzNode>, Error> {
     let mut children = HashMap::new();
 
     let num_entries = reader.read_wz_int()?;
@@ -147,36 +147,36 @@ pub fn parse_property(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<DynamicWzNode, Error> {
+) -> Result<WzNode, Error> {
     let property_type = reader.read_u8()?;
     let property_node = match property_type {
-        0 => DynamicWzNode::new(&name, WzValue::Null),
+        0 => WzNode::new(&name, WzValue::Null),
         2 | 11 => {
             let value = reader.read_i16()?;
-            DynamicWzNode::new(&name, WzValue::Short(value))
+            WzNode::new(&name, WzValue::Short(value))
         }
         3 | 19 => {
             let value = reader.read_wz_int()?;
-            DynamicWzNode::new(&name, WzValue::Int(value))
+            WzNode::new(&name, WzValue::Int(value))
         }
         20 => {
             let value = reader.read_wz_long()?;
-            DynamicWzNode::new(&name, WzValue::Long(value))
+            WzNode::new(&name, WzValue::Long(value))
         }
         4 => {
             let value = match reader.read_u8()? {
                 0x80 => reader.read_f32()?,
                 _ => 0.0,
             };
-            DynamicWzNode::new(&name, WzValue::Float(value))
+            WzNode::new(&name, WzValue::Float(value))
         }
         5 => {
             let value = reader.read_f64()?;
-            DynamicWzNode::new(&name, WzValue::Double(value))
+            WzNode::new(&name, WzValue::Double(value))
         }
         8 => {
             let value = reader.read_string_block(offset)?;
-            DynamicWzNode::new(&name, WzValue::String(value))
+            WzNode::new(&name, WzValue::String(value))
         }
         9 => {
             let remember_pos = reader.read_u32()? + reader.get_position()? as u32;
@@ -200,7 +200,7 @@ pub fn parse_extended_property(
     name: String,
     reader: &Arc<WzReader>,
     offset: u32,
-) -> Result<DynamicWzNode, Error> {
+) -> Result<WzNode, Error> {
     let extended_property_type = reader.read_string_block(offset)?;
     let extended_property_node = match extended_property_type.as_str() {
         "Property" => {
@@ -208,7 +208,7 @@ pub fn parse_extended_property(
 
             let properties = parse_property_list(reader, offset)?;
 
-            DynamicWzNode::new_with_children(&name, WzValue::Extended, properties)
+            WzNode::new_with_children(&name, WzValue::Extended, properties)
         }
         "Canvas" => {
             reader.skip(1)?;
@@ -246,7 +246,7 @@ pub fn parse_extended_property(
                 }
             }
 
-            DynamicWzNode::new_with_children(
+            WzNode::new_with_children(
                 &name,
                 WzValue::Canvas(WzCanvas {
                     width,
@@ -263,7 +263,7 @@ pub fn parse_extended_property(
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            DynamicWzNode::new(&name, WzValue::Vector(Vec2 { x, y }))
+            WzNode::new(&name, WzValue::Vector(Vec2 { x, y }))
         }
         "Shape2D#Convex2D" => {
             let mut properties = HashMap::new();
@@ -275,7 +275,7 @@ pub fn parse_extended_property(
                 properties.insert(entry_name.clone(), Arc::new(entry_node));
             }
 
-            DynamicWzNode::new_with_children(&name, WzValue::Convex, properties)
+            WzNode::new_with_children(&name, WzValue::Convex, properties)
         }
         "Sound_DX8" => {
             reader.skip(1)?;
@@ -309,12 +309,12 @@ pub fn parse_extended_property(
                 buffer_size: buffer_size as usize,
             };
 
-            DynamicWzNode::new(&name, WzValue::Sound(value))
+            WzNode::new(&name, WzValue::Sound(value))
         }
         "UOL" => {
             reader.skip(1)?;
             let value = reader.read_string_block(offset)?;
-            DynamicWzNode::new(&name, WzValue::Uol(value))
+            WzNode::new(&name, WzValue::Uol(value))
         }
         _ => Err(Error::new(
             ErrorKind::Unsupported,
