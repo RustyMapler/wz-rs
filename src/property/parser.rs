@@ -1,4 +1,6 @@
-use crate::{ArcDynamicWzNode, DynamicWzNode, Vec2, WzCanvas, WzReader, WzSound, WzValue};
+use crate::{
+    ArcDynamicWzNode, DynamicWzNode, Vec2, WzCanvas, WzReader, WzSound, WzValue, WzValueCast,
+};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -231,9 +233,17 @@ pub fn parse_extended_property(
 
             reader.skip(1)?;
 
-            // Skip reading this for now. TODO: Fix
+            // Skip reading this for now.
             if len > 0 {
                 reader.skip(len as usize)?;
+            }
+
+            // Get the origin now
+            let mut origin = Vec2::default();
+            if let Some(node) = properties.get("origin") {
+                if let Some(vector) = node.value.as_vector() {
+                    origin = vector.clone();
+                }
             }
 
             DynamicWzNode::new_with_children(
@@ -244,6 +254,7 @@ pub fn parse_extended_property(
                     format1,
                     format2,
                     offset,
+                    origin,
                 }),
                 properties,
             )
