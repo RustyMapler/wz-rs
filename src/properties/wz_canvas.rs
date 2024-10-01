@@ -1,4 +1,8 @@
-use crate::{Vec2, WzImage, WzNode, WzObject, WzProperty, WzReader};
+use crate::{
+    convert_image_bgra8888_to_rgba8888, decompress_image_bgr565_to_rgba8888,
+    decompress_image_bgra4444_to_rgba8888, decompress_image_dxt5_to_rgba8888, Vec2, WzImage,
+    WzNode, WzObject, WzProperty, WzReader,
+};
 use byteorder::{ByteOrder, LittleEndian};
 use core::panic;
 use inflate::inflate_bytes_zlib;
@@ -112,11 +116,8 @@ impl WzCanvasProperty {
         match format {
             // bgra4444
             1 => {
-                let decompressed = WzCanvasProperty::decompress_image_bgra4444_to_rgba8888(
-                    &img_bytes,
-                    self.width,
-                    self.height,
-                );
+                let decompressed =
+                    decompress_image_bgra4444_to_rgba8888(&img_bytes, self.width, self.height);
                 Some(WzImage {
                     width: self.width,
                     height: self.height,
@@ -126,7 +127,7 @@ impl WzCanvasProperty {
             }
             // bgra8888
             2 => {
-                let converted = WzCanvasProperty::convert_image_bgra8888_to_rgba8888(img_bytes);
+                let converted = convert_image_bgra8888_to_rgba8888(img_bytes);
                 Some(WzImage {
                     width: self.width,
                     height: self.height,
@@ -135,11 +136,8 @@ impl WzCanvasProperty {
                 })
             }
             517 => {
-                let decompressed = WzCanvasProperty::decompress_image_bgr565_to_rgba8888(
-                    &img_bytes,
-                    self.width,
-                    self.height,
-                );
+                let decompressed =
+                    decompress_image_bgr565_to_rgba8888(&img_bytes, self.width, self.height);
                 Some(WzImage {
                     width: self.width,
                     height: self.height,
@@ -149,11 +147,8 @@ impl WzCanvasProperty {
             }
             // dxt5
             1026 | 2050 => {
-                let decompressed = WzCanvasProperty::decompress_image_dxt5_to_rgba8888(
-                    &img_bytes,
-                    self.width,
-                    self.height,
-                );
+                let decompressed =
+                    decompress_image_dxt5_to_rgba8888(&img_bytes, self.width, self.height);
                 Some(WzImage {
                     width: self.width,
                     height: self.height,
@@ -220,93 +215,5 @@ impl WzCanvasProperty {
         self.reader.seek(current_position).unwrap();
 
         compressed_bytes
-    }
-
-    fn decompress_image_bgra4444_to_rgba8888(data: &[u8], width: u32, height: u32) -> Vec<u8> {
-        fn extract_lower_bits(bits: u8) -> u8 {
-            let byte = bits & 0x0F;
-            byte | byte << 4
-        }
-        fn extract_upper_bits(bits: u8) -> u8 {
-            let byte = bits & 0xF0;
-            byte | byte >> 4
-        }
-
-        let uncompressed_size = width * height * 2;
-        let mut decoded_bytes: Vec<u8> = Vec::with_capacity((uncompressed_size * 2) as usize);
-        unsafe {
-            decoded_bytes.set_len((uncompressed_size * 2) as usize);
-        }
-
-        for i in (0..uncompressed_size as usize).step_by(2) {
-            let b = extract_lower_bits(data[i]);
-            let g = extract_upper_bits(data[i]);
-            let r = extract_lower_bits(data[i + 1]);
-            let a = extract_upper_bits(data[i + 1]);
-
-            decoded_bytes[i * 2] = r;
-            decoded_bytes[i * 2 + 1] = g;
-            decoded_bytes[(i + 1) * 2] = b;
-            decoded_bytes[(i + 1) * 2 + 1] = a;
-        }
-
-        decoded_bytes
-    }
-
-    fn convert_image_bgra8888_to_rgba8888(data: Vec<u8>) -> Vec<u8> {
-        let mut bytes = data;
-        for i in (0..bytes.len()).step_by(4) {
-            bytes.swap(i, i + 2);
-        }
-        bytes
-    }
-
-    fn decompress_image_dxt5_to_rgba8888(data: &[u8], width: u32, height: u32) -> Vec<u8> {
-        let mut decompressed = vec![0u8; (4 * width * height).try_into().unwrap()];
-
-        Format::Bc3.decompress(data, width as usize, height as usize, &mut decompressed);
-
-        decompressed
-    }
-
-    // not 100% sure if this is correct
-    fn decompress_image_bgr565_to_rgba8888(data: &[u8], width: u32, height: u32) -> Vec<u8> {
-        let uncompressed_size = width * height * 2;
-        let mut decoded_bytes: Vec<u8> = Vec::with_capacity((uncompressed_size * 2) as usize);
-        unsafe {
-            decoded_bytes.set_len((uncompressed_size * 2) as usize);
-        }
-
-        let mut line_index = 0;
-        let mut j0 = 0;
-        let j1 = height / 16;
-        while j0 < j1 {
-            let mut dst_index = line_index;
-            let mut i0 = 0;
-            let i1 = width / 16;
-            while i0 < i1 {
-                let index = (i0 + j0 * i1) * 2;
-                let b0 = data[index as usize];
-                let b1 = data[(index + 1) as usize];
-                for _ in 0..16 {
-                    decoded_bytes[dst_index] = b0;
-                    dst_index += 1;
-                    decoded_bytes[dst_index] = b1;
-                    dst_index += 1;
-                }
-
-                i0 += 1;
-            }
-
-            for _ in 1..16 {
-                dst_index += (width * 2) as usize;
-            }
-
-            line_index += (width * 32) as usize;
-
-            j0 += 1;
-        }
-
-        decoded_bytes
     }
 }
