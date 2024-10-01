@@ -269,35 +269,36 @@ pub fn parse_extended_property(
         "Sound_DX8" => {
             reader.skip(1)?;
 
-            // Get sound metadata
+            // Sound metadata
             let sound_size = reader.read_wz_int()?;
             let sound_duration = reader.read_wz_int()?;
 
-            // Read the header and extract wav len
+            // Sound header, extract wav len
             let header_offset = reader.get_position()?;
             reader.skip(WzSound::SOUND_HEADER.len())?;
             let wav_len = reader.read_u8()?;
             reader.seek(header_offset)?;
 
-            // Now determine the header len and extract the header data
-            let header_len = WzSound::SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
-            let header_data = reader.read_bytes(header_len)?;
+            // Determine the header len and extract the header data
+            let header_size = WzSound::SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
+            let header_data = reader.read_bytes(header_size)?;
 
             // Extract the sound data
             let sound_data_offset = reader.get_position()?;
             let sound_data = reader.read_bytes(sound_size as u64)?;
 
-            let sound = WzSound {
-                offset,
-                sound_duration: sound_duration as u32,
+            let value = WzSound {
+                name: name.clone(),
+                duration: sound_duration as u32,
                 header_offset,
                 header_data,
+                header_size: header_size as u32,
                 sound_data_offset,
                 sound_data,
                 sound_size: sound_size as u32,
             };
 
-            DynamicWzNode::new(&name, WzValue::Sound(sound))
+            DynamicWzNode::new(&name, WzValue::Sound(value))
         }
         "UOL" => {
             reader.skip(1)?;

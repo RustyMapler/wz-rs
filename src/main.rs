@@ -2,7 +2,7 @@ extern crate wz;
 
 use std::io;
 use std::time::Instant;
-use wz::{print_node, resolve, WzCanvas, WzFile, WzValue, WzValueCast, WzVersion};
+use wz::{resolve, WzFile, WzVersion};
 
 fn time_code_block<F: FnOnce() -> R, R>(f: F, label: &str) -> R {
     let start = Instant::now();
