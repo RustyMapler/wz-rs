@@ -292,10 +292,10 @@ pub fn parse_extended_property(
                 duration: duration as u32,
                 header_offset,
                 header_data,
-                header_size: header_size as u32,
+                header_size: header_size as usize,
                 buffer_offset,
                 buffer,
-                buffer_size: buffer_size as u32,
+                buffer_size: buffer_size as usize,
             };
 
             DynamicWzNode::new(&name, WzValue::Sound(value))
