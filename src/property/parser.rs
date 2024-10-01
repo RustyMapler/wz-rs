@@ -270,8 +270,8 @@ pub fn parse_extended_property(
             reader.skip(1)?;
 
             // Sound metadata
-            let sound_size = reader.read_wz_int()?;
-            let sound_duration = reader.read_wz_int()?;
+            let buffer_size = reader.read_wz_int()?;
+            let duration = reader.read_wz_int()?;
 
             // Sound header, extract wav len
             let header_offset = reader.get_position()?;
@@ -284,18 +284,18 @@ pub fn parse_extended_property(
             let header_data = reader.read_bytes(header_size)?;
 
             // Extract the sound data
-            let sound_data_offset = reader.get_position()?;
-            let sound_data = reader.read_bytes(sound_size as u64)?;
+            let buffer_offset = reader.get_position()?;
+            let buffer = reader.read_bytes(buffer_size as u64)?;
 
             let value = WzSound {
                 name: name.clone(),
-                duration: sound_duration as u32,
+                duration: duration as u32,
                 header_offset,
                 header_data,
                 header_size: header_size as u32,
-                sound_data_offset,
-                sound_data,
-                sound_size: sound_size as u32,
+                buffer_offset,
+                buffer,
+                buffer_size: buffer_size as u32,
             };
 
             DynamicWzNode::new(&name, WzValue::Sound(value))

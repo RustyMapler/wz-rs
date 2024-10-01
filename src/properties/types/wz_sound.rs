@@ -11,9 +11,9 @@ pub struct WzSound {
     pub header_offset: u64,
     pub header_data: Vec<u8>,
     pub header_size: u32,
-    pub sound_data_offset: u64,
-    pub sound_data: Vec<u8>,
-    pub sound_size: u32,
+    pub buffer_offset: u64,
+    pub buffer: Vec<u8>,
+    pub buffer_size: u32,
 }
 
 impl WzSound {
@@ -29,8 +29,8 @@ impl fmt::Display for WzSound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "WzSound(sound_duration: {}, header_offset: {}, header_size: {}, sound_data_offset: {}, sound_size: {})",
-            self.duration, self.header_offset, self.header_size, self.sound_data_offset, self.sound_size
+            "WzSound(name: {}, sound_duration: {}, header_offset: {}, header_size: {}, sound_data_offset: {}, sound_size: {})",
+            self.name, self.duration, self.header_offset, self.header_size, self.buffer_offset, self.buffer_size
         )
     }
 }
@@ -60,8 +60,8 @@ pub fn save_sound(sound: &WzSound) -> std::io::Result<()> {
             ];
 
             let u8_16_from_header = &sound.header_data[0x34..0x34 + 16];
-            let chunk1_size = (sound.sound_size + 36).to_le_bytes();
-            let chunk2_size = sound.sound_size.to_le_bytes();
+            let chunk1_size = (sound.buffer_size + 36).to_le_bytes();
+            let chunk2_size = sound.buffer_size.to_le_bytes();
 
             let mut wav_header = WAV_HEADER.to_vec();
 
@@ -70,10 +70,10 @@ pub fn save_sound(sound: &WzSound) -> std::io::Result<()> {
             wav_header[40..44].copy_from_slice(&chunk2_size);
 
             writer.write_all(&wav_header)?;
-            writer.write_all(&sound.sound_data)?;
+            writer.write_all(&sound.buffer)?;
         }
         "mp3" => {
-            writer.write_all(&sound.sound_data)?;
+            writer.write_all(&sound.buffer)?;
         }
         _ => {}
     }
