@@ -2,7 +2,7 @@ extern crate wz;
 
 use std::io;
 use std::time::Instant;
-use wz::{resolve, WzFile, WzVersion};
+use wz::{resolve, MainWindow, WzFile, WzVersion};
 
 fn time_code_block<F: FnOnce() -> R, R>(f: F, label: &str) -> R {
     let start = Instant::now();
@@ -14,6 +14,7 @@ fn time_code_block<F: FnOnce() -> R, R>(f: F, label: &str) -> R {
     result
 }
 
+/*
 fn main() -> io::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
@@ -56,6 +57,22 @@ fn main() -> io::Result<()> {
     );
 
     //print_node(&root, 0);
+
+    Ok(())
+}
+*/
+
+fn main() -> io::Result<()> {
+    simple_logger::SimpleLogger::new()
+        .env()
+        .with_module_level("wz", log::LevelFilter::Info)
+        .with_module_level("eframe", log::LevelFilter::Error)
+        .init()
+        .unwrap();
+
+    let app = MainWindow::default();
+
+    let _result = app.run();
 
     Ok(())
 }
