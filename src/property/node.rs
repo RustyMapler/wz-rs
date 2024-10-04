@@ -21,7 +21,7 @@ impl DynamicWzNode {
     pub fn new_with_children(
         name: &String,
         value: impl Into<WzValue>,
-        children: HashMap<String, Arc<DynamicWzNode>>,
+        children: HashMap<String, ArcDynamicWzNode>,
     ) -> Self {
         let result = Self {
             name: name.clone(),
@@ -45,7 +45,7 @@ impl fmt::Display for DynamicWzNode {
 }
 
 // Function to recursively print the node names and their children
-pub fn print_node(node: &Arc<DynamicWzNode>, depth: usize) {
+pub fn print_node(node: &ArcDynamicWzNode, depth: usize) {
     let indent = "-".repeat(depth);
     println!("{}{}({})", indent, node.name, node.value);
 
@@ -55,7 +55,7 @@ pub fn print_node(node: &Arc<DynamicWzNode>, depth: usize) {
 }
 
 // Function to resolve a path to a child node
-pub fn resolve(node: &Arc<DynamicWzNode>, path: &str) -> Result<Arc<DynamicWzNode>, Error> {
+pub fn resolve(node: &ArcDynamicWzNode, path: &str) -> Result<ArcDynamicWzNode, Error> {
     let parts: Vec<&str> = path.split('/').collect();
     let mut current_node = Arc::clone(node);
 
