@@ -1,5 +1,5 @@
 use crate::{ArcDynamicWzNode, WzFile, WzVersion};
-use eframe::egui::{self, Direction, Layout, ScrollArea};
+use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
 use rfd::FileDialog;
 use std::io::Error;
 
@@ -24,7 +24,7 @@ impl Default for MainWindow {
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.ui_menu_bar(ui);
+            self.ui_main_menu_bar(ui);
             self.ui_main_content(ui);
         });
     }
@@ -48,7 +48,7 @@ impl MainWindow {
         )
     }
 
-    fn ui_menu_bar(&mut self, ui: &mut egui::Ui) {
+    fn ui_main_menu_bar(&mut self, ui: &mut egui::Ui) {
         ui.menu_button("File", |ui| {
             if ui.button("Open File").clicked() {
                 let _ = self.open_file();
@@ -59,29 +59,43 @@ impl MainWindow {
     fn ui_main_content(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_centered(|ui| {
             ui.group(|ui| {
-                self.ui_wz_directory(ui);
+                self.ui_wz_node_directory(ui);
             });
 
             ui.group(|ui| {
-                self.ui_wz_focused(ui);
+                self.ui_wz_node_selection(ui);
             });
         });
     }
 
-    fn ui_wz_directory(&mut self, ui: &mut egui::Ui) {
-        let wz_node = self.wz_node.clone();
-
+    fn ui_wz_node_directory(&mut self, ui: &mut egui::Ui) {
         ScrollArea::both()
             .auto_shrink(false)
             .max_width(ui.available_width() * 0.5)
             .show(ui, |ui| {
-                if let Some(wz_node) = wz_node {
-                    self.ui_wz_node_recursive(ui, &wz_node);
+                if let Some(wz_node) = self.wz_node.clone() {
+                    self.ui_wz_node_directory_recursive(ui, &wz_node);
                 }
             });
     }
 
-    fn ui_wz_focused(&mut self, ui: &mut egui::Ui) {
+    fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcDynamicWzNode) {
+        let collapsing_section = ui.collapsing(node.name.clone(), |ui| {
+            for child in node.children.values() {
+                self.ui_wz_node_directory_recursive(ui, child);
+            }
+
+            if node.children.is_empty() {
+                ui.label(RichText::new(format!("{}", node.value)).color(Color32::LIGHT_GRAY));
+            }
+        });
+
+        if collapsing_section.header_response.clicked() {
+            self.selected_wz_node = Some(node.clone());
+        }
+    }
+
+    fn ui_wz_node_selection(&mut self, ui: &mut egui::Ui) {
         ui.with_layout(
             Layout::centered_and_justified(Direction::LeftToRight),
             |ui| {
@@ -92,20 +106,6 @@ impl MainWindow {
                 }
             },
         );
-    }
-
-    fn ui_wz_node_recursive(&mut self, ui: &mut egui::Ui, node: &ArcDynamicWzNode) {
-        ui.collapsing(node.name.clone(), |ui| {
-            if node.children.is_empty() {
-                if ui.label(format!("{}", node.value)).clicked() {
-                    self.selected_wz_node = Some(node.clone());
-                }
-            }
-
-            for child in node.children.values() {
-                self.ui_wz_node_recursive(ui, child);
-            }
-        });
     }
 
     fn open_file(&mut self) -> Result<(), Error> {
