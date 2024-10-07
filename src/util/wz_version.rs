@@ -76,7 +76,7 @@ fn test_version_and_version_hash(
 
     // Seek to the file offset for this version
     let file_start = *reader.file_start.borrow();
-    let offset = get_version_offset(file_start, version);
+    let offset = get_version_offset(file_start as usize, version);
     reader.seek(offset as u64)?;
 
     // Test the root directory and look for other directories
@@ -112,6 +112,15 @@ fn test_version_and_version_hash(
 
         if object.value.is_null() {
             return Err(Error::new(ErrorKind::Other, "Failed object test"));
+        }
+
+        reader.seek(object.offset as u64)?;
+
+        let test_byte = reader.read_u8()?;
+        if test_byte != WzReader::HEADERBYTE_WITHOUT_OFFSET
+            && test_byte != WzReader::HEADERBYTE_WITH_OFFSET
+        {
+            return Err(Error::new(ErrorKind::Other, "Failed byte test for object"));
         }
     }
 
@@ -210,7 +219,7 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
 }
 
 // File offset depends on the version
-pub fn get_version_offset(file_start: u32, version: i16) -> u32 {
+pub fn get_version_offset(file_start: usize, version: i16) -> usize {
     if version > MAX_BRUTE_FORCE_VERSION {
         file_start
     } else {

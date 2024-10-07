@@ -7,6 +7,7 @@ use std::{
 };
 pub struct WzNode {
     pub name: String,
+    pub offset: usize,
     pub value: WzValue,
     pub children: HashMap<String, Arc<WzNode>>,
 }
@@ -14,17 +15,19 @@ pub struct WzNode {
 pub type ArcWzNode = Arc<WzNode>;
 
 impl WzNode {
-    pub fn new(name: &String, value: impl Into<WzValue>) -> Self {
-        Self::new_with_children(name, value, HashMap::new())
+    pub fn new(name: &String, offset: usize, value: impl Into<WzValue>) -> Self {
+        Self::new_with_children(name, offset, value, HashMap::new())
     }
 
     pub fn new_with_children(
         name: &String,
+        offset: usize,
         value: impl Into<WzValue>,
         children: HashMap<String, Arc<WzNode>>,
     ) -> Self {
         let result = Self {
             name: name.clone(),
+            offset,
             value: value.into(),
             children,
         };
