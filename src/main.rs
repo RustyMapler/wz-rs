@@ -1,78 +1,36 @@
 extern crate wz;
 
 use std::io;
-use std::time::Instant;
-use wz::{resolve, MainWindow, WzFile, WzVersion};
+use wz::{build_lookup_table, get_description, resolve, WzFile, WzVersion};
 
-fn time_code_block<F: FnOnce() -> R, R>(f: F, label: &str) -> R {
-    let start = Instant::now();
-    let result = f();
-    let duration = start.elapsed();
-
-    log::info!("{}: Duration: {:?}", label, duration);
-
-    result
-}
-
-/*
 fn main() -> io::Result<()> {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
-    let file_path = "assets/Map.wz";
-    let node_path = "MapHelper.img/weather/snow";
+    let file_path = "assets/Item.wz";
+    let node_path = "ItemOption.img";
 
     let mut wz_file = WzFile::new(file_path, WzVersion::GMS);
     wz_file.open()?;
 
-    let root = time_code_block(
-        || {
-            return wz_file.parse_root_directory().unwrap();
-        },
-        "New | parse root",
-    );
+    let root = wz_file.parse_root_directory()?;
 
-    time_code_block(
-        || {
-            if let Ok(node) = resolve(&root, node_path) {
-                log::info!("node: {}", node.name);
+    if let Ok(node) = resolve(&root, node_path) {
+        let lookup_table = build_lookup_table(&node);
+
+        let potentials = vec!["040041", "030041", "030044"];
+        let level = 15;
+
+        for potential in potentials {
+            if let Some(description) = get_description((potential, level), &lookup_table) {
+                println!("Looking up {:?} -- Description: {}", potential, description);
+            } else {
+                println!("Item not found for ID {}", potential);
             }
-        },
-        &format!("New | resolve {}", node_path),
-    );
+        }
 
-    time_code_block(
-        || {
-            wz_file.parse_wz_main_directory().unwrap();
-        },
-        "Old | parse root",
-    );
-
-    time_code_block(
-        || {
-            if let Some(node) = wz_file.resolve(node_path) {
-                log::info!("Found node at path {}: {}", node_path, node.get_name());
-            }
-        },
-        &format!("Old | resolve {}", node_path),
-    );
-
-    //print_node(&root, 0);
-
-    Ok(())
-}
-*/
-
-fn main() -> io::Result<()> {
-    simple_logger::SimpleLogger::new()
-        .env()
-        .with_module_level("wz", log::LevelFilter::Info)
-        .with_module_level("eframe", log::LevelFilter::Error)
-        .init()
-        .unwrap();
-
-    let app = MainWindow::default();
-
-    let _result = app.run();
+        // let json_data = serde_json::to_string_pretty(&lookup_table).unwrap();
+        // println!("{}", json_data);
+    }
 
     Ok(())
 }

@@ -14,5 +14,7 @@ image = "*"
 inflate = "*"
 log = "*"
 rfd = "0.15.0"
+serde = {version = "*", features = ["derive"]}
+serde_json = "*"
 simple_logger = "*"
 squish = "2.0.0-beta1"

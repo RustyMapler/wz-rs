@@ -1,3 +1,4 @@
+pub mod item_option;
 pub mod properties;
 pub mod property;
 pub mod ui;
@@ -9,6 +10,7 @@ pub mod wz_reader;
 
 mod tests;
 
+pub use item_option::*;
 pub use properties::*;
 pub use property::*;
 pub use ui::*;
