@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::{DynamicWzNode, WzValue};
+use crate::{WzNode, WzValue};
 
 #[derive(Serialize, Debug)]
 pub struct ItemOption {
@@ -11,7 +11,7 @@ pub struct ItemOption {
 }
 
 impl ItemOption {
-    pub fn from_node(node: &DynamicWzNode) -> Option<Self> {
+    pub fn from_node(node: &WzNode) -> Option<Self> {
         let name = node.name.clone();
         let mut description = String::new();
         let mut levels = HashMap::new();
@@ -55,7 +55,7 @@ impl ItemOption {
     }
 }
 
-pub fn build_lookup_table(root_node: &DynamicWzNode) -> HashMap<String, ItemOption> {
+pub fn build_lookup_table(root_node: &WzNode) -> HashMap<String, ItemOption> {
     let mut table = HashMap::new();
 
     for (name, child_node) in &root_node.children {
