@@ -8,14 +8,16 @@ version = "0.1.0"
 [dependencies]
 aes = "*"
 byteorder = "*"
-eframe = "0.29.1"
-egui_extras = "0.29.1"
-image = "*"
-indexmap = {version = "2.6.0", features = ["serde"]}
+indexmap = "2.6.0"
 inflate = "*"
 log = "*"
-rfd = "0.15.0"
-serde = {version = "1.0.210", features = ["derive"]}
-serde_json = "*"
 simple_logger = "*"
 squish = "2.0.0-beta1"
+
+[dev-dependencies]
+eframe = "0.29.1"
+egui_extras = "0.29.1"
+indexmap = {version = "2.6.0", features = ["serde"]}
+rfd = "0.15.0"
+serde = {version = "1.0.210", features = ["derive"]}
+serde_json = "1.0.128"
