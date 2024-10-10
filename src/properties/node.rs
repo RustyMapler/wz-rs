@@ -1,6 +1,6 @@
 use super::WzValue;
+use indexmap::IndexMap;
 use std::{
-    collections::HashMap,
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
@@ -9,21 +9,21 @@ pub struct WzNode {
     pub name: String,
     pub offset: usize,
     pub value: WzValue,
-    pub children: HashMap<String, Arc<WzNode>>,
+    pub children: IndexMap<String, Arc<WzNode>>,
 }
 
 pub type ArcWzNode = Arc<WzNode>;
 
 impl WzNode {
     pub fn new(name: &String, offset: usize, value: impl Into<WzValue>) -> Self {
-        Self::new_with_children(name, offset, value, HashMap::new())
+        Self::new_with_children(name, offset, value, IndexMap::new())
     }
 
     pub fn new_with_children(
         name: &String,
         offset: usize,
         value: impl Into<WzValue>,
-        children: HashMap<String, Arc<WzNode>>,
+        children: IndexMap<String, ArcWzNode>,
     ) -> Self {
         let result = Self {
             name: name.clone(),
@@ -34,6 +34,10 @@ impl WzNode {
         log::trace!("node::new | {}", result);
         result
     }
+
+    pub fn display(&self) -> String {
+        format!("{}({})", self.name, self.offset)
+    }
 }
 
 impl fmt::Display for WzNode {
@@ -41,14 +45,14 @@ impl fmt::Display for WzNode {
         let children: Vec<String> = self.children.keys().cloned().collect();
         write!(
             f,
-            "name(\"{}\"), value({:?}), children({:?})",
-            self.name, self.value, children
+            "name(\"{}\"), offset({}), value({:?}), children({:?})",
+            self.name, self.offset, self.value, children
         )
     }
 }
 
 // Function to recursively print the node names and their children
-pub fn print_node(node: &Arc<WzNode>, depth: usize) {
+pub fn print_node(node: &ArcWzNode, depth: usize) {
     let indent = "-".repeat(depth);
     println!("{}{}({})", indent, node.name, node.value);
 
@@ -58,7 +62,7 @@ pub fn print_node(node: &Arc<WzNode>, depth: usize) {
 }
 
 // Function to resolve a path to a child node
-pub fn resolve(node: &Arc<WzNode>, path: &str) -> Result<Arc<WzNode>, Error> {
+pub fn resolve(node: &ArcWzNode, path: &str) -> Result<ArcWzNode, Error> {
     let parts: Vec<&str> = path.split('/').collect();
     let mut current_node = Arc::clone(node);
 
