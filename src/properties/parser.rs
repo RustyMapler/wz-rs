@@ -125,35 +125,36 @@ pub fn parse_property(
     reader: &Arc<WzReader>,
     offset: usize,
 ) -> Result<WzNode, Error> {
+    let property_offset = reader.get_position()? as usize;
     let property_type = reader.read_u8()?;
     let property_node = match property_type {
-        0 => WzNode::new(&name, offset, WzValue::Null),
+        0 => WzNode::new(&name, property_offset, WzValue::Null),
         2 | 11 => {
             let value = reader.read_i16()?;
-            WzNode::new(&name, offset, WzValue::Short(value))
+            WzNode::new(&name, property_offset, WzValue::Short(value))
         }
         3 | 19 => {
             let value = reader.read_wz_int()?;
-            WzNode::new(&name, offset, WzValue::Int(value))
+            WzNode::new(&name, property_offset, WzValue::Int(value))
         }
         20 => {
             let value = reader.read_wz_long()?;
-            WzNode::new(&name, offset, WzValue::Long(value))
+            WzNode::new(&name, property_offset, WzValue::Long(value))
         }
         4 => {
             let value = match reader.read_u8()? {
                 0x80 => reader.read_f32()?,
                 _ => 0.0,
             };
-            WzNode::new(&name, offset, WzValue::Float(value))
+            WzNode::new(&name, property_offset, WzValue::Float(value))
         }
         5 => {
             let value = reader.read_f64()?;
-            WzNode::new(&name, offset, WzValue::Double(value))
+            WzNode::new(&name, property_offset, WzValue::Double(value))
         }
         8 => {
             let value = reader.read_string_block(offset as u32)?;
-            WzNode::new(&name, offset, WzValue::String(value))
+            WzNode::new(&name, property_offset, WzValue::String(value))
         }
         9 => {
             let remember_pos = reader.read_u32()? + reader.get_position()? as u32;
@@ -165,7 +166,7 @@ pub fn parse_property(
             ErrorKind::Unsupported,
             format!(
                 "Unsupported property: {} {} {}",
-                name, offset, property_type
+                name, property_offset, property_type
             ),
         ))?,
     };
@@ -178,6 +179,7 @@ pub fn parse_extended_property(
     reader: &Arc<WzReader>,
     offset: usize,
 ) -> Result<WzNode, Error> {
+    let extended_property_offset = reader.get_position()? as usize;
     let extended_property_type = reader.read_string_block(offset as u32)?;
     let extended_property_node = match extended_property_type.as_str() {
         "Property" => {
@@ -185,7 +187,12 @@ pub fn parse_extended_property(
 
             let properties = parse_property_list(reader, offset)?;
 
-            WzNode::new_with_children(&name, offset, WzValue::Extended, properties)
+            WzNode::new_with_children(
+                &name,
+                extended_property_offset,
+                WzValue::Extended,
+                properties,
+            )
         }
         "Canvas" => {
             reader.skip(1)?;
@@ -225,7 +232,7 @@ pub fn parse_extended_property(
 
             WzNode::new_with_children(
                 &name,
-                offset as usize,
+                extended_property_offset,
                 WzValue::Canvas(WzCanvas {
                     width,
                     height,
@@ -241,7 +248,7 @@ pub fn parse_extended_property(
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            WzNode::new(&name, offset, WzValue::Vector(Vec2 { x, y }))
+            WzNode::new(&name, extended_property_offset, WzValue::Vector(Vec2 { x, y }))
         }
         "Shape2D#Convex2D" => {
             let mut properties = HashMap::new();
@@ -253,7 +260,7 @@ pub fn parse_extended_property(
                 properties.insert(entry_name.clone(), Arc::new(entry_node));
             }
 
-            WzNode::new_with_children(&name, offset, WzValue::Convex, properties)
+            WzNode::new_with_children(&name, extended_property_offset, WzValue::Convex, properties)
         }
         "Sound_DX8" => {
             reader.skip(1)?;
@@ -287,18 +294,18 @@ pub fn parse_extended_property(
                 buffer_size: buffer_size as usize,
             };
 
-            WzNode::new(&name, offset, WzValue::Sound(value))
+            WzNode::new(&name, extended_property_offset, WzValue::Sound(value))
         }
         "UOL" => {
             reader.skip(1)?;
             let value = reader.read_string_block(offset as u32)?;
-            WzNode::new(&name, offset, WzValue::Uol(value))
+            WzNode::new(&name, extended_property_offset, WzValue::Uol(value))
         }
         _ => Err(Error::new(
             ErrorKind::Unsupported,
             format!(
                 "Unsupported extended property: {} {} {}",
-                name, offset, extended_property_type
+                name, extended_property_offset, extended_property_type
             ),
         ))?,
     };

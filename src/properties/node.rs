@@ -34,6 +34,10 @@ impl WzNode {
         log::trace!("node::new | {}", result);
         result
     }
+
+    pub fn display(&self) -> String {
+        format!("{}({})", self.name, self.offset)
+    }
 }
 
 impl fmt::Display for WzNode {
@@ -41,8 +45,8 @@ impl fmt::Display for WzNode {
         let children: Vec<String> = self.children.keys().cloned().collect();
         write!(
             f,
-            "name(\"{}\"), value({:?}), children({:?})",
-            self.name, self.value, children
+            "name(\"{}\"), offset({}), value({:?}), children({:?})",
+            self.name, self.offset, self.value, children
         )
     }
 }

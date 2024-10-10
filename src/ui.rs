@@ -80,7 +80,7 @@ impl MainWindow {
     }
 
     fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcWzNode) {
-        let collapsing_section = ui.collapsing(node.name.clone(), |ui| {
+        let collapsing_section = ui.collapsing(node.display(), |ui| {
             for child in node.children.values() {
                 self.ui_wz_node_directory_recursive(ui, child);
             }
