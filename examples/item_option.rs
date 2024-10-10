@@ -1,20 +1,25 @@
-use serde::Serialize;
-use std::collections::HashMap;
+use std::{
+    fs::File,
+    io::{self, Write},
+    path::Path,
+};
 
-use crate::{WzNode, WzValue};
+use indexmap::IndexMap;
+use serde::Serialize;
+use wz::{resolve, WzFile, WzNode, WzValue, WzVersion};
 
 #[derive(Serialize, Debug)]
 pub struct ItemOption {
     name: String,
     description: String,
-    levels: HashMap<i32, HashMap<String, i32>>,
+    levels: IndexMap<i32, IndexMap<String, i32>>,
 }
 
 impl ItemOption {
     pub fn from_node(node: &WzNode) -> Option<Self> {
         let name = node.name.clone();
         let mut description = String::new();
-        let mut levels = HashMap::new();
+        let mut levels = IndexMap::new();
 
         // Extract description
         if let Some(info_node) = node.children.get("info") {
@@ -29,7 +34,7 @@ impl ItemOption {
         if let Some(level_node) = node.children.get("level") {
             for (level_name, level_val) in &level_node.children {
                 if let Ok(level_num) = level_name.parse::<i32>() {
-                    let mut properties = HashMap::new();
+                    let mut properties = IndexMap::new();
 
                     // Extract all properties under this level
                     for (prop_name, prop_node) in &level_val.children {
@@ -55,8 +60,8 @@ impl ItemOption {
     }
 }
 
-pub fn build_lookup_table(root_node: &WzNode) -> HashMap<String, ItemOption> {
-    let mut table = HashMap::new();
+pub fn build_lookup_table(root_node: &WzNode) -> IndexMap<String, ItemOption> {
+    let mut table = IndexMap::new();
 
     for (name, child_node) in &root_node.children {
         if let Some(item_option) = ItemOption::from_node(child_node) {
@@ -69,7 +74,7 @@ pub fn build_lookup_table(root_node: &WzNode) -> HashMap<String, ItemOption> {
 
 pub fn get_description(
     lookup: (&str, i32),
-    item_options: &HashMap<String, ItemOption>,
+    item_options: &IndexMap<String, ItemOption>,
 ) -> Option<String> {
     let (item_id, level) = lookup;
 
@@ -95,28 +100,46 @@ pub fn get_description(
 }
 
 fn main() -> io::Result<()> {
-    simple_logger::SimpleLogger::new().env().init().unwrap();
+    simple_logger::SimpleLogger::new()
+        .env()
+        .with_module_level("wz", log::LevelFilter::Error)
+        .init()
+        .unwrap();
 
-    let file_path = "assets/Item.wz";
-    let node_path = "ItemOption.img";
+    let input_file = "assets/Item.wz";
+    let input_node_path = "ItemOption.img";
+    let output_file = "assets/itemOption.json";
 
-    let mut wz_file = WzFile::new(file_path, WzVersion::GMS);
+    let lookup_potentials = vec!["040041", "030041", "030044"];
+    let lookup_level = 15;
+
+    let write_to_file = true;
+    let lookup = false;
+
+    let mut wz_file = WzFile::new(input_file, WzVersion::GMS);
+
     wz_file.open()?;
 
     let root = wz_file.parse_root_directory()?;
 
-    if let Ok(node) = resolve(&root, node_path) {
-        let lookup_table = build_lookup_table(&node);
-        // let json_data = serde_json::to_string_pretty(&lookup_table).unwrap();
+    let mut lookup_table = IndexMap::new();
 
-        let potentials = vec!["040041", "030041", "030044"];
-        let level = 15;
+    if let Ok(node) = resolve(&root, input_node_path) {
+        lookup_table = build_lookup_table(&node);
 
-        for potential in potentials {
-            if let Some(description) = get_description((potential, level), &lookup_table) {
-                println!("Looking up {:?} -- Description: {}", potential, description);
+        if write_to_file {
+            let json_data = serde_json::to_string_pretty(&lookup_table).unwrap();
+            let mut file = File::create(&Path::new(output_file))?;
+            file.write_all(json_data.as_bytes())?;
+        }
+    }
+
+    if lookup {
+        for potential in lookup_potentials {
+            if let Some(description) = get_description((potential, lookup_level), &lookup_table) {
+                log::error!("Looking up {:?} -- Description: {}", potential, description);
             } else {
-                println!("Item not found for ID {}", potential);
+                log::error!("Item not found for ID {}", potential);
             }
         }
     }
