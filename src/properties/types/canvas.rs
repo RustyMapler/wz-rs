@@ -34,7 +34,7 @@ impl fmt::Display for WzCanvas {
     }
 }
 
-pub fn get_wz_image(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<WzImage, Error> {
+pub fn parse_canvas(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<WzImage, Error> {
     let raw_image_bytes = get_raw_image(canvas, reader)?;
     let canvas_format = canvas.format1 + canvas.format2 as u32;
 
