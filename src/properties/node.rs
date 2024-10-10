@@ -1,6 +1,6 @@
 use super::WzValue;
+use indexmap::IndexMap;
 use std::{
-    collections::HashMap,
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
@@ -9,21 +9,21 @@ pub struct WzNode {
     pub name: String,
     pub offset: usize,
     pub value: WzValue,
-    pub children: HashMap<String, Arc<WzNode>>,
+    pub children: IndexMap<String, Arc<WzNode>>,
 }
 
 pub type ArcWzNode = Arc<WzNode>;
 
 impl WzNode {
     pub fn new(name: &String, offset: usize, value: impl Into<WzValue>) -> Self {
-        Self::new_with_children(name, offset, value, HashMap::new())
+        Self::new_with_children(name, offset, value, IndexMap::new())
     }
 
     pub fn new_with_children(
         name: &String,
         offset: usize,
         value: impl Into<WzValue>,
-        children: HashMap<String, ArcWzNode>,
+        children: IndexMap<String, ArcWzNode>,
     ) -> Self {
         let result = Self {
             name: name.clone(),

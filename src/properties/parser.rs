@@ -1,6 +1,6 @@
 use crate::{ArcWzNode, Vec2, WzCanvas, WzNode, WzReader, WzSound, WzValue, WzValueCast};
+use indexmap::IndexMap;
 use std::{
-    collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
 };
@@ -10,7 +10,7 @@ pub fn parse_directory(
     reader: &Arc<WzReader>,
     offset: usize,
 ) -> Result<ArcWzNode, Error> {
-    let mut children = HashMap::new();
+    let mut children = IndexMap::new();
 
     reader.seek(offset as u64)?;
 
@@ -107,8 +107,8 @@ pub fn parse_img(name: String, reader: &Arc<WzReader>, offset: usize) -> Result<
 pub fn parse_property_list(
     reader: &Arc<WzReader>,
     offset: usize,
-) -> Result<HashMap<String, ArcWzNode>, Error> {
-    let mut children = HashMap::new();
+) -> Result<IndexMap<String, ArcWzNode>, Error> {
+    let mut children = IndexMap::new();
 
     let num_entries = reader.read_wz_int()?;
     for _ in 0..num_entries {
@@ -197,7 +197,7 @@ pub fn parse_extended_property(
         "Canvas" => {
             reader.skip(1)?;
 
-            let mut properties = HashMap::new();
+            let mut properties = IndexMap::new();
 
             let has_children = reader.read_u8()? == 1;
             if has_children {
@@ -248,10 +248,14 @@ pub fn parse_extended_property(
             let x = reader.read_wz_int()?;
             let y = reader.read_wz_int()?;
 
-            WzNode::new(&name, extended_property_offset, WzValue::Vector(Vec2 { x, y }))
+            WzNode::new(
+                &name,
+                extended_property_offset,
+                WzValue::Vector(Vec2 { x, y }),
+            )
         }
         "Shape2D#Convex2D" => {
-            let mut properties = HashMap::new();
+            let mut properties = IndexMap::new();
 
             let num_entries = reader.read_wz_int()?;
             for index in 0..num_entries {
