@@ -39,22 +39,6 @@ fn main() -> io::Result<()> {
         &format!("New | resolve {}", node_path),
     );
 
-    time_code_block(
-        || {
-            wz_file.parse_wz_main_directory().unwrap();
-        },
-        "Old | parse root",
-    );
-
-    time_code_block(
-        || {
-            if let Some(node) = wz_file.resolve(node_path) {
-                log::info!("Found node at path {}: {}", node_path, node.get_name());
-            }
-        },
-        &format!("Old | resolve {}", node_path),
-    );
-
     //print_node(&root, 0);
 
     Ok(())

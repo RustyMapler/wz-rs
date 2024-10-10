@@ -5,26 +5,29 @@ use std::{
     io::{Error, ErrorKind},
     sync::Arc,
 };
-pub struct DynamicWzNode {
+pub struct WzNode {
     pub name: String,
+    pub offset: usize,
     pub value: WzValue,
-    pub children: HashMap<String, Arc<DynamicWzNode>>,
+    pub children: HashMap<String, Arc<WzNode>>,
 }
 
-pub type ArcDynamicWzNode = Arc<DynamicWzNode>;
+pub type ArcWzNode = Arc<WzNode>;
 
-impl DynamicWzNode {
-    pub fn new(name: &String, value: impl Into<WzValue>) -> Self {
-        Self::new_with_children(name, value, HashMap::new())
+impl WzNode {
+    pub fn new(name: &String, offset: usize, value: impl Into<WzValue>) -> Self {
+        Self::new_with_children(name, offset, value, HashMap::new())
     }
 
     pub fn new_with_children(
         name: &String,
+        offset: usize,
         value: impl Into<WzValue>,
-        children: HashMap<String, Arc<DynamicWzNode>>,
+        children: HashMap<String, Arc<WzNode>>,
     ) -> Self {
         let result = Self {
             name: name.clone(),
+            offset,
             value: value.into(),
             children,
         };
@@ -33,7 +36,7 @@ impl DynamicWzNode {
     }
 }
 
-impl fmt::Display for DynamicWzNode {
+impl fmt::Display for WzNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let children: Vec<String> = self.children.keys().cloned().collect();
         write!(
@@ -45,7 +48,7 @@ impl fmt::Display for DynamicWzNode {
 }
 
 // Function to recursively print the node names and their children
-pub fn print_node(node: &Arc<DynamicWzNode>, depth: usize) {
+pub fn print_node(node: &Arc<WzNode>, depth: usize) {
     let indent = "-".repeat(depth);
     println!("{}{}({})", indent, node.name, node.value);
 
@@ -55,7 +58,7 @@ pub fn print_node(node: &Arc<DynamicWzNode>, depth: usize) {
 }
 
 // Function to resolve a path to a child node
-pub fn resolve(node: &Arc<DynamicWzNode>, path: &str) -> Result<Arc<DynamicWzNode>, Error> {
+pub fn resolve(node: &Arc<WzNode>, path: &str) -> Result<Arc<WzNode>, Error> {
     let parts: Vec<&str> = path.split('/').collect();
     let mut current_node = Arc::clone(node);
 

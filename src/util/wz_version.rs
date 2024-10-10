@@ -1,4 +1,4 @@
-use crate::{WzDirectory, WzReader};
+use crate::{parse_directory, ArcWzNode, WzNode, WzReader, WzValueCast};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -76,34 +76,45 @@ fn test_version_and_version_hash(
 
     // Seek to the file offset for this version
     let file_start = *reader.file_start.borrow();
-    let offset = get_version_offset(file_start, version);
+    let offset = get_version_offset(file_start as usize, version);
     reader.seek(offset as u64)?;
 
-    // Create a new test directory
-    let mut test_directory = WzDirectory {
-        reader: reader.clone(),
-        offset,
-        name: "Test Directory".to_owned(),
-        directories: HashMap::new(),
-        objects: HashMap::new(),
-    };
-
     // Test the root directory and look for other directories
-    test_directory.parse_directory(false)?;
-    if test_directory.directories.is_empty() && test_directory.objects.is_empty() {
+    let node = parse_directory("Test Directory".to_string(), &reader, offset)?;
+    let ref_node = node.as_ref();
+
+    let directories: HashMap<String, Arc<WzNode>> = ref_node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| v.value.is_directory())
+        .collect();
+
+    if directories.is_empty() {
         return Err(Error::new(ErrorKind::Other, "Failed directory test"));
     }
 
+    let objects: HashMap<String, ArcWzNode> = node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| !v.value.is_directory() && !v.value.is_null())
+        .collect();
+
     // If there are objects, check to see if it has the .img header
-    if !test_directory.objects.is_empty() {
-        let object = match test_directory.objects.iter().next() {
+    if !objects.is_empty() {
+        let object: &Arc<crate::WzNode> = match objects.iter().next() {
             Some((_, object)) => object,
             None => {
                 return Err(Error::new(ErrorKind::Other, "Failed to get next object"));
             }
         };
 
-        reader.seek(object.offset.into())?;
+        if object.value.is_null() {
+            return Err(Error::new(ErrorKind::Other, "Failed object test"));
+        }
+
+        reader.seek(object.offset as u64)?;
 
         let test_byte = reader.read_u8()?;
         if test_byte != WzReader::HEADERBYTE_WITHOUT_OFFSET
@@ -208,7 +219,7 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
 }
 
 // File offset depends on the version
-pub fn get_version_offset(file_start: u32, version: i16) -> u32 {
+pub fn get_version_offset(file_start: usize, version: i16) -> usize {
     if version > MAX_BRUTE_FORCE_VERSION {
         file_start
     } else {
