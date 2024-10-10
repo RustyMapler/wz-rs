@@ -1,4 +1,4 @@
-use crate::{ArcDynamicWzNode, WzFile, WzVersion};
+use crate::{ArcWzNode, WzFile, WzVersion};
 use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
 use rfd::FileDialog;
 use std::io::Error;
@@ -6,8 +6,8 @@ use std::io::Error;
 pub struct MainWindow {
     pub window_name: String,
     pub wz_file: Option<WzFile>,
-    pub wz_node: Option<ArcDynamicWzNode>,
-    pub selected_wz_node: Option<ArcDynamicWzNode>,
+    pub wz_node: Option<ArcWzNode>,
+    pub selected_wz_node: Option<ArcWzNode>,
 }
 
 impl Default for MainWindow {
@@ -79,7 +79,7 @@ impl MainWindow {
             });
     }
 
-    fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcDynamicWzNode) {
+    fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcWzNode) {
         let collapsing_section = ui.collapsing(node.name.clone(), |ui| {
             for child in node.children.values() {
                 self.ui_wz_node_directory_recursive(ui, child);
