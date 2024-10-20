@@ -1,11 +1,10 @@
+use byteorder::{ByteOrder, LittleEndian};
+use inflate::inflate_bytes_zlib;
 use std::{
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
 };
-
-use byteorder::{ByteOrder, LittleEndian};
-use inflate::inflate_bytes_zlib;
 
 use crate::{
     convert_image_bgra8888_to_rgba8888, decompress_image_bgr565_to_rgba8888,

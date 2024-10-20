@@ -1,10 +1,9 @@
+use crate::WzReader;
 use std::{
     fmt,
     fs::File,
     io::{BufWriter, Error, Write},
 };
-
-use crate::WzReader;
 
 #[derive(Default, Debug, Clone)]
 pub struct WzSound {
