@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
@@ -46,6 +47,7 @@ struct FieldJson {
     #[serde(rename = "pathConstraints")]
     path_constraints: String,
     revision: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     origin: Option<Origin>,
     #[serde(rename = "modelId")]
     model_id: Option<String>,
@@ -113,7 +115,9 @@ struct MapComponent {
 #[derive(Serialize, Deserialize, Debug)]
 struct FootholdComponent {
     #[serde(rename = "FootholdsByLayer")]
-    footholds_by_layer: std::collections::HashMap<String, Vec<Foothold>>,
+    footholds_by_layer: HashMap<String, Vec<Foothold>>,
+    #[serde(rename = "Enable")]
+    enable: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -316,19 +320,17 @@ struct Scale {
     z: f32,
 }
 
-// Custom deserialization function for the json field
 fn deserialize_json_field<'de, D>(deserializer: D) -> Result<FieldJson, D::Error>
 where
-    D: serde::Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     let json_str: String = Deserialize::deserialize(deserializer)?;
     serde_json::from_str(&json_str).map_err(serde::de::Error::custom)
 }
 
-// Custom serialization function for the json field
 fn serialize_json_field<S>(field_json: &FieldJson, serializer: S) -> Result<S::Ok, S::Error>
 where
-    S: serde::Serializer,
+    S: Serializer,
 {
     let json_str = serde_json::to_string(field_json).map_err(serde::ser::Error::custom)?;
     serializer.serialize_str(&json_str)
