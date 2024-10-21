@@ -1,11 +1,59 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{self, Write};
-use std::sync::Arc;
-use wz::{properties::node::WzNode, resolve, WzFile, WzVersion};
+use std::io::{self, Read, Write};
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
+struct World {
+    id: String,
+    project_id: String,
+    uri: String,
+    mimetype: String,
+    children: Vec<Child>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Child {
+    field1: u32,
+    json: String,
+    field3: Vec<Field>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Field {
+    id: String,
+    path: String,
+    #[serde(
+        deserialize_with = "deserialize_json_field",
+        serialize_with = "serialize_json_field"
+    )]
+    json: FieldJson,
+    mimetype: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FieldJson {
+    name: String,
+    path: String,
+    #[serde(rename = "nameEditable")]
+    name_editable: bool,
+    enable: bool,
+    visible: bool,
+    #[serde(rename = "displayOrder")]
+    display_order: u32,
+    #[serde(rename = "pathConstraints")]
+    path_constraints: String,
+    revision: u32,
+    origin: Option<Origin>,
+    #[serde(rename = "modelId")]
+    model_id: Option<String>,
+    #[serde(rename = "@components")]
+    components: Vec<Component>,
+    #[serde(rename = "@version")]
+    version: u32,
+}
+
+// Define the struct for origin
+#[derive(Serialize, Deserialize, Debug)]
 struct Origin {
     #[serde(rename = "type")]
     origin_type: String,
@@ -13,29 +61,73 @@ struct Origin {
     sub_entity_id: Option<String>,
 }
 
+// Enum to represent different types of components
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Position {
-    x: f64,
-    y: f64,
-    z: f64,
+#[serde(tag = "@type")]
+enum Component {
+    #[serde(rename = "MOD.Core.BackgroundComponent")]
+    BackgroundComponent(BackgroundComponent),
+    #[serde(rename = "MOD.Core.TileMapComponent")]
+    TileMapComponent(TileMapComponent),
+    #[serde(rename = "MOD.Core.MapLayerComponent")]
+    MapLayerComponent(MapLayerComponent),
+    #[serde(other)]
+    Unknown, // Catch-all for unknown component types
+}
+
+// Define the structs for each component type
+#[derive(Serialize, Deserialize, Debug)]
+struct BackgroundComponent {
+    #[serde(rename = "SolidColor")]
+    solid_color: SolidColor,
+    #[serde(rename = "TemplateRUID")]
+    template_ruid: String,
+    #[serde(rename = "Type")]
+    component_type: u32,
+    #[serde(rename = "WebUrl")]
+    web_url: String,
+    #[serde(rename = "Enable")]
+    enable: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct QuaternionRotation {
-    x: f64,
-    y: f64,
-    z: f64,
-    w: f64,
+struct MapLayerComponent {
+    #[serde(rename = "IsVisible")]
+    is_visible: bool,
+    #[serde(rename = "LayerSortOrder")]
+    layer_sort_order: u32,
+    #[serde(rename = "Locked")]
+    locked: bool,
+    #[serde(rename = "MapLayerName")]
+    map_layer_name: String,
+    #[serde(rename = "Thumbnail")]
+    thumbnail: String,
+    #[serde(rename = "Enable")]
+    enable: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Scale {
-    x: f64,
-    y: f64,
-    z: f64,
+struct TileMapComponent {
+    #[serde(rename = "IsOddGridPosition")]
+    is_odd_grid_position: bool,
+    #[serde(rename = "SortingLayer")]
+    sorting_layer: String,
+    #[serde(rename = "TileMapVersion")]
+    tile_map_version: u32,
+    #[serde(rename = "TileSetRUID")]
+    tile_set_ruid: TileSetRUID,
+    #[serde(rename = "Tiles")]
+    tiles: Vec<Tile>,
+    #[serde(rename = "Enable")]
+    enable: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct SolidColor {
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -45,184 +137,53 @@ struct TileSetRUID {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct TilePosition {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 struct Tile {
     #[serde(rename = "type")]
     tile_type: u32,
-    position: TilePosition,
+    position: Position,
+    #[serde(rename = "tileIndex")]
     tile_index: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct SolidColor {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+struct Position {
+    x: i32,
+    y: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "@type")]
-enum Component {
-    #[serde(rename = "MOD.Core.TransformComponent")]
-    TransformComponent {
-        #[serde(rename = "Position")]
-        position: Position,
-        #[serde(rename = "QuaternionRotation")]
-        quaternion_rotation: QuaternionRotation,
-        #[serde(rename = "Scale")]
-        scale: Scale,
-        #[serde(rename = "Enable")]
-        enable: bool,
-    },
-    #[serde(rename = "MOD.Core.BackgroundComponent")]
-    BackgroundComponent {
-        #[serde(rename = "SolidColor")]
-        solid_color: SolidColor,
-        #[serde(rename = "TemplateRUID")]
-        template_ruid: String,
-        #[serde(rename = "Type")]
-        component_type: u32,
-        #[serde(rename = "WebUrl")]
-        web_url: String,
-        #[serde(rename = "Enable")]
-        enable: bool,
-    },
-    #[serde(rename = "MOD.Core.MapLayerComponent")]
-    MapLayerComponent {
-        #[serde(rename = "IsVisible")]
-        is_visible: bool,
-        #[serde(rename = "LayerSortOrder")]
-        layer_sort_order: u32,
-        #[serde(rename = "Locked")]
-        locked: bool,
-        #[serde(rename = "MapLayerName")]
-        map_layer_name: String,
-        #[serde(rename = "Thumbnail")]
-        thumbnail: String,
-        #[serde(rename = "Enable")]
-        enable: bool,
-    },
-    #[serde(rename = "MOD.Core.TileMapComponent")]
-    TileMapComponent {
-        #[serde(rename = "IsOddGridPosition")]
-        is_odd_grid_position: bool,
-        #[serde(rename = "SortingLayer")]
-        sorting_layer: String,
-        #[serde(rename = "TileMapVersion")]
-        tile_map_version: u32,
-        #[serde(rename = "TileSetRUID")]
-        tile_set_ruid: TileSetRUID,
-        #[serde(rename = "Tiles")]
-        tiles: Vec<Tile>,
-        #[serde(rename = "Enable")]
-        enable: bool,
-    },
+// Custom deserialization function for the json field
+fn deserialize_json_field<'de, D>(deserializer: D) -> Result<FieldJson, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let json_str: String = Deserialize::deserialize(deserializer)?;
+    serde_json::from_str(&json_str).map_err(serde::de::Error::custom)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Background {
-    name: String,
-    path: String,
-    name_editable: bool,
-    enable: bool,
-    visible: bool,
-    display_order: u32,
-    path_constraints: String,
-    revision: u32,
-    model_id: Option<String>,
-    #[serde(rename = "@components")]
-    components: Vec<Component>,
-    #[serde(rename = "@version")]
-    version: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct MapLayer {
-    name: String,
-    path: String,
-    name_editable: bool,
-    enable: bool,
-    visible: bool,
-    display_order: u32,
-    path_constraints: String,
-    revision: u32,
-    origin: Origin,
-    model_id: String,
-    #[serde(rename = "@components")]
-    components: Vec<Component>,
-    #[serde(rename = "@version")]
-    version: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct TileMap {
-    name: String,
-    path: String,
-    name_editable: bool,
-    enable: bool,
-    visible: bool,
-    display_order: u32,
-    path_constraints: String,
-    revision: u32,
-    origin: Origin,
-    model_id: String,
-    #[serde(rename = "@components")]
-    components: Vec<Component>,
-    #[serde(rename = "@version")]
-    version: u32,
-}
-
-fn to_json(node: &Arc<WzNode>) -> String {
-    serde_json::to_string_pretty(node.as_ref()).unwrap()
-}
-
-fn write_json_to_file(json: &str, output_file: &str) -> io::Result<()> {
-    let mut file = File::create(output_file)?;
-    file.write_all(json.as_bytes())?;
-    Ok(())
-}
-
-fn to_node_path(map_id: &str) -> String {
-    format!("Map/Map{}/{}.img", &map_id[0..1], map_id)
+// Custom serialization function for the json field
+fn serialize_json_field<S>(field_json: &FieldJson, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let json_str = serde_json::to_string(field_json).map_err(serde::ser::Error::custom)?;
+    serializer.serialize_str(&json_str)
 }
 
 fn main() -> io::Result<()> {
-    simple_logger::SimpleLogger::new()
-        .env()
-        .with_module_level("wz", log::LevelFilter::Error)
-        .init()
-        .unwrap();
+    // Read the JSON file
+    let mut file = File::open("assets/map-000020000.json")?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
 
-    let input_file = "assets/Map002.wz";
-    let input_map_id = "000010000";
-    let output_file = format!("assets/{}.json", input_map_id);
+    // Deserialize the JSON data
+    let world: World = serde_json::from_str(&data).expect("Invalid JSON");
 
-    let mut wz_file = WzFile::new(input_file, WzVersion::GMS);
-    wz_file.open()?;
+    // Serialize the data back to JSON
+    let serialized_data = serde_json::to_string_pretty(&world).expect("Serialization failed");
 
-    let root = wz_file.parse_root_directory()?;
-
-    let path = to_node_path(input_map_id);
-
-    if let Ok(node) = resolve(&root, &path) {
-        let json = to_json(&node);
-        write_json_to_file(&json, &output_file)?;
-        log::info!("JSON data written to {}", output_file);
-    } else {
-        log::error!("Node not found for path: {}", path);
-    }
+    // Optionally, write the serialized data back to a file
+    let mut output_file = File::create("assets/map-serialized-000020000.json")?;
+    output_file.write_all(serialized_data.as_bytes())?;
 
     Ok(())
 }
