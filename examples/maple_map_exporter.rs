@@ -9,6 +9,9 @@ struct World {
     uri: String,
     mimetype: String,
     children: Vec<Child>,
+    field11: u32,
+    version: String,
+    sub_version: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
