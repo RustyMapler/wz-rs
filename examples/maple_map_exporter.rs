@@ -68,6 +68,12 @@ struct Origin {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "@type")]
 enum Component {
+    #[serde(rename = "MOD.Core.MapComponent")]
+    MapComponent(MapComponent),
+    #[serde(rename = "MOD.Core.FootholdComponent")]
+    FootholdComponent(FootholdComponent),
+    #[serde(rename = "MOD.Core.SoundComponent")]
+    SoundComponent(SoundComponent),
     #[serde(rename = "MOD.Core.BackgroundComponent")]
     BackgroundComponent(BackgroundComponent),
     #[serde(rename = "MOD.Core.TileMapComponent")]
@@ -78,6 +84,50 @@ enum Component {
     TransformComponent(TransformComponent),
     #[serde(other)]
     Unknown, // Catch-all for unknown component types
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MapComponent {
+    #[serde(rename = "AirAccelerationXFactor")]
+    air_acceleration_x_factor: f32,
+    #[serde(rename = "AirDecelerationXFactor")]
+    air_deceleration_x_factor: f32,
+    #[serde(rename = "FallSpeedMaxXFactor")]
+    fall_speed_max_x_factor: f32,
+    #[serde(rename = "FallSpeedMaxYFactor")]
+    fall_speed_max_y_factor: f32,
+    #[serde(rename = "Gravity")]
+    gravity: f32,
+    #[serde(rename = "IsInstanceMap")]
+    is_instance_map: bool,
+    #[serde(rename = "TileMapMode")]
+    tile_map_mode: u32,
+    #[serde(rename = "WalkAccelerationFactor")]
+    walk_acceleration_factor: f32,
+    #[serde(rename = "WalkDrag")]
+    walk_drag: f32,
+    #[serde(rename = "Enable")]
+    enable: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FootholdComponent {
+    #[serde(rename = "FootholdsByLayer")]
+    footholds_by_layer: std::collections::HashMap<String, Vec<Foothold>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct SoundComponent {
+    #[serde(rename = "AudioClipRUID")]
+    audio_clip_ruid: String,
+    #[serde(rename = "Bgm")]
+    bgm: bool,
+    #[serde(rename = "PlayOnEnable")]
+    play_on_enable: bool,
+    #[serde(rename = "Volume")]
+    volume: f32,
+    #[serde(rename = "Enable")]
+    enable: bool,
 }
 
 // Define the structs for each component type
@@ -158,6 +208,60 @@ struct TransformComponent {
     scale: Option<Scale>,
     #[serde(rename = "Enable")]
     enable: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Foothold {
+    #[serde(rename = "Length")]
+    length: f32,
+    #[serde(rename = "NextFootholdId")]
+    next_foothold_id: u32,
+    #[serde(rename = "PreviousFootholdId")]
+    previous_foothold_id: u32,
+    #[serde(rename = "groupID")]
+    group_id: u32,
+    #[serde(rename = "layer")]
+    layer: u32,
+    #[serde(rename = "sortingLayerName")]
+    sorting_layer_name: String,
+    #[serde(rename = "attribute")]
+    attribute: FootholdAttribute,
+    #[serde(rename = "OwnerId")]
+    owner_id: String,
+    #[serde(rename = "Id")]
+    id: u32,
+    #[serde(rename = "StartPoint")]
+    start_point: Point,
+    #[serde(rename = "EndPoint")]
+    end_point: Point,
+    #[serde(rename = "Variance")]
+    variance: Point,
+    #[serde(rename = "IsDynamic")]
+    is_dynamic: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FootholdAttribute {
+    #[serde(rename = "walk")]
+    walk: f32,
+    #[serde(rename = "force")]
+    force: f32,
+    #[serde(rename = "drag")]
+    drag: f32,
+    #[serde(rename = "isBlockVertical")]
+    is_block_vertical: bool,
+    #[serde(rename = "isDynamic")]
+    is_dynamic: bool,
+    #[serde(rename = "isCustomFoothold")]
+    is_custom_foothold: bool,
+    #[serde(rename = "inertiaOption")]
+    inertia_option: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Point {
+    x: f32,
+    y: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
