@@ -281,20 +281,18 @@ pub fn parse_extended_property(
 
             // Determine the header len and extract the header data
             let header_size = WzSound::SOUND_HEADER.len() as u64 + 1 + wav_len as u64;
-            let header_data = reader.read_bytes(header_size)?;
+            reader.skip(header_size as usize)?;
 
             // Extract the sound data
             let buffer_offset = reader.get_position()?;
-            let buffer = reader.read_bytes(buffer_size as u64)?;
+            reader.skip(buffer_size as usize)?;
 
             let value = WzSound {
                 name: name.clone(),
                 duration: duration as u32,
                 header_offset,
-                header_data,
                 header_size: header_size as usize,
                 buffer_offset,
-                buffer,
                 buffer_size: buffer_size as usize,
             };
 

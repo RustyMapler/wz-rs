@@ -1,7 +1,8 @@
+use crate::WzReader;
 use std::{
     fmt,
     fs::File,
-    io::{BufWriter, Write},
+    io::{BufWriter, Error, Write},
 };
 
 #[derive(Default, Debug, Clone)]
@@ -9,10 +10,8 @@ pub struct WzSound {
     pub name: String,
     pub duration: u32,
     pub header_offset: u64,
-    pub header_data: Vec<u8>,
     pub header_size: usize,
     pub buffer_offset: u64,
-    pub buffer: Vec<u8>,
     pub buffer_size: usize,
 }
 
@@ -33,6 +32,22 @@ impl fmt::Display for WzSound {
             self.name, self.duration, self.header_offset, self.header_size, self.buffer_offset, self.buffer_size
         )
     }
+}
+
+pub fn parse_sound_header(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>, Error> {
+    let current_position = reader.get_position()?;
+    reader.seek(sound.header_offset)?;
+    let header_bytes = reader.read_bytes(sound.header_size as u64)?;
+    reader.seek(current_position)?;
+    Ok(header_bytes)
+}
+
+pub fn parse_sound_buffer(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>, Error> {
+    let current_position = reader.get_position()?;
+    reader.seek(sound.buffer_offset)?;
+    let buffer_bytes = reader.read_bytes(sound.buffer_size as u64)?;
+    reader.seek(current_position)?;
+    Ok(buffer_bytes)
 }
 
 const WAV_HEADER_SIZE: usize = 44;
@@ -76,8 +91,11 @@ fn create_wav_header(
     wav_header
 }
 
-pub fn save_sound(path: &str, sound: &WzSound) -> std::io::Result<()> {
-    let sound_type = match sound.header_data.len() {
+pub fn save_sound(path: &str, sound: &WzSound, reader: &WzReader) -> std::io::Result<()> {
+    let sound_header = parse_sound_header(sound, reader)?;
+    let sound_buffer = parse_sound_buffer(sound, reader)?;
+
+    let sound_type = match sound_header.len() {
         0x46 => "wav",
         _ => "mp3",
     };
@@ -89,14 +107,14 @@ pub fn save_sound(path: &str, sound: &WzSound) -> std::io::Result<()> {
     match sound_type {
         "wav" => {
             // Ensure the header has enough data for the PCM subchunk
-            if sound.header_data.len() < 0x34 + PCM_SUBCHUNK_SIZE {
+            if sound_header.len() < 0x34 + PCM_SUBCHUNK_SIZE {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Invalid WAV header data",
                 ));
             }
 
-            let sound_format: [u8; PCM_SUBCHUNK_SIZE] = sound.header_data
+            let sound_format: [u8; PCM_SUBCHUNK_SIZE] = sound_header
                 [0x34..0x34 + PCM_SUBCHUNK_SIZE]
                 .try_into()
                 .map_err(|_| {
@@ -109,11 +127,11 @@ pub fn save_sound(path: &str, sound: &WzSound) -> std::io::Result<()> {
             let wav_header = create_wav_header(sound.buffer_size, &sound_format);
 
             writer.write_all(&wav_header)?;
-            writer.write_all(&sound.buffer)?;
+            writer.write_all(&sound_buffer)?;
         }
         "mp3" => {
             // Directly write the MP3 data
-            writer.write_all(&sound.buffer)?;
+            writer.write_all(&sound_buffer)?;
         }
         _ => {
             return Err(std::io::Error::new(

@@ -1,11 +1,10 @@
+use byteorder::{ByteOrder, LittleEndian};
+use inflate::inflate_bytes_zlib;
 use std::{
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
 };
-
-use byteorder::{ByteOrder, LittleEndian};
-use inflate::inflate_bytes_zlib;
 
 use crate::{
     convert_image_bgra8888_to_rgba8888, decompress_image_bgr565_to_rgba8888,
@@ -34,7 +33,7 @@ impl fmt::Display for WzCanvas {
     }
 }
 
-pub fn get_wz_image(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<WzImage, Error> {
+pub fn parse_canvas(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<WzImage, Error> {
     let raw_image_bytes = get_raw_image(canvas, reader)?;
     let canvas_format = canvas.format1 + canvas.format2 as u32;
 
