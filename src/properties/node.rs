@@ -58,17 +58,35 @@ impl Serialize for WzNode {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_map(Some(4))?;
-        state.serialize_entry("name", &self.name)?;
-        state.serialize_entry("offset", &self.offset)?;
-        state.serialize_entry("value", &self.value)?;
+        let mut state = serializer.serialize_map(None)?;
 
-        let children: IndexMap<_, _> = self
-            .children
-            .iter()
-            .map(|(k, v)| (k.clone(), &**v))
-            .collect();
-        state.serialize_entry("children", &children)?;
+        if self.children.is_empty() {
+            match &self.value {
+                WzValue::Short(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Int(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Long(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Float(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Double(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::String(val) => state.serialize_entry(&self.name, val)?,
+                _ => {} // Skip other types
+            }
+        } else {
+            for (key, child) in &self.children {
+                if let WzValue::Extended = &self.value {
+                    match &child.value {
+                        WzValue::Short(val) => state.serialize_entry(key, val)?,
+                        WzValue::Int(val) => state.serialize_entry(key, val)?,
+                        WzValue::Long(val) => state.serialize_entry(key, val)?,
+                        WzValue::Float(val) => state.serialize_entry(key, val)?,
+                        WzValue::Double(val) => state.serialize_entry(key, val)?,
+                        WzValue::String(val) => state.serialize_entry(key, val)?,
+                        _ => state.serialize_entry(key, child.as_ref())?,
+                    }
+                } else {
+                    state.serialize_entry(key, child.as_ref())?;
+                }
+            }
+        }
 
         state.end()
     }
