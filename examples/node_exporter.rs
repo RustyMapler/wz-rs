@@ -26,7 +26,7 @@ fn main() -> io::Result<()> {
         .unwrap();
 
     let input_file = "assets/Map002.wz";
-    let input_map_id = "000000000";
+    let input_map_id = "000020000";
     let output_file = format!("assets/{}.json", input_map_id);
 
     let mut wz_file = WzFile::new(input_file, WzVersion::GMS);
