@@ -108,6 +108,7 @@ struct MapLayerComponent {
     enable: bool,
 }
 
+// Define the struct for origin
 #[derive(Serialize, Deserialize, Debug)]
 struct TileMapComponent {
     #[serde(rename = "Color", skip_serializing_if = "Option::is_none")]
@@ -142,6 +143,7 @@ struct TileMapComponent {
     enable: bool,
 }
 
+// Enum to represent different types of components
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct TransformComponent {
@@ -169,6 +171,7 @@ struct TileSetRUID {
     data_id: String,
 }
 
+// Define the structs for each component type
 #[derive(Serialize, Deserialize, Debug)]
 struct Tile {
     #[serde(rename = "type")]
