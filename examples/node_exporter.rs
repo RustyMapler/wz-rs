@@ -1,32 +1,11 @@
-use serde::Serialize;
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
 use wz::{properties::node::WzNode, resolve, WzFile, WzVersion};
 
-#[derive(Serialize)]
-struct SerializableWzNode {
-    name: String,
-    offset: usize,
-    value: String,
-    children: Vec<SerializableWzNode>,
-}
-
-impl From<&Arc<WzNode>> for SerializableWzNode {
-    fn from(node: &Arc<WzNode>) -> Self {
-        SerializableWzNode {
-            name: node.name.clone(),
-            offset: node.offset,
-            value: format!("{:?}", node.value),
-            children: node.children.values().map(|child| child.into()).collect(),
-        }
-    }
-}
-
 fn to_json(node: &Arc<WzNode>) -> String {
-    let serializable = SerializableWzNode::from(node);
-    serde_json::to_string_pretty(&serializable).unwrap()
+    serde_json::to_string_pretty(node.as_ref()).unwrap()
 }
 
 fn write_json_to_file(json: &str, output_file: &str) -> io::Result<()> {

@@ -1,10 +1,12 @@
 use super::WzValue;
 use indexmap::IndexMap;
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
 };
+
 pub struct WzNode {
     pub name: String,
     pub offset: usize,
@@ -48,6 +50,27 @@ impl fmt::Display for WzNode {
             "name(\"{}\"), offset({}), value({:?}), children({:?})",
             self.name, self.offset, self.value, children
         )
+    }
+}
+
+impl Serialize for WzNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(4))?;
+        state.serialize_entry("name", &self.name)?;
+        state.serialize_entry("offset", &self.offset)?;
+        state.serialize_entry("value", &self.value)?;
+
+        let children: IndexMap<_, _> = self
+            .children
+            .iter()
+            .map(|(k, v)| (k.clone(), &**v))
+            .collect();
+        state.serialize_entry("children", &children)?;
+
+        state.end()
     }
 }
 
