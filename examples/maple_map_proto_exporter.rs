@@ -68,6 +68,7 @@ struct JsonString {
     #[serde(rename = "@version")]
     version: u32,
     enable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     origin: Option<Origin>,
 }
 
@@ -99,7 +100,7 @@ enum Component {
     #[serde(rename = "MOD.Core.TransformComponent")]
     TransformComponent(TransformComponent),
     #[serde(other)]
-    Unknown, // Catch-all for unknown component types
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -232,10 +233,25 @@ struct SpriteRendererComponent {
     action_sheet: HashMap<String, String>,
     #[serde(rename = "Color", skip_serializing_if = "Option::is_none")]
     color: Option<Color>,
+    #[serde(rename = "DrawMode", skip_serializing_if = "Option::is_none")]
+    draw_mode: Option<u32>,
     #[serde(rename = "Enable")]
     enable: bool,
     #[serde(rename = "EndFrameIndex")]
     end_frame_index: i32,
+    #[serde(rename = "FlipX", skip_serializing_if = "Option::is_none")]
+    flip_x: Option<bool>,
+    #[serde(rename = "FlipY", skip_serializing_if = "Option::is_none")]
+    flip_y: Option<bool>,
+    #[serde(
+        rename = "IgnoreMapLayerCheck",
+        skip_serializing_if = "Option::is_none"
+    )]
+    ignore_map_layer_check: Option<bool>,
+    #[serde(rename = "OrderInLayer", skip_serializing_if = "Option::is_none")]
+    order_in_layer: Option<u32>,
+    #[serde(rename = "PlayRate", skip_serializing_if = "Option::is_none")]
+    play_rate: Option<f32>,
     #[serde(rename = "RenderSetting")]
     render_setting: u32,
     #[serde(rename = "SortingLayer")]
@@ -258,6 +274,8 @@ struct TagComponent {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TileMapComponent {
+    #[serde(rename = "Color", skip_serializing_if = "Option::is_none")]
+    color: Option<Color>,
     #[serde(rename = "Enable")]
     enable: bool,
     #[serde(rename = "FootholdDrag", skip_serializing_if = "Option::is_none")]
@@ -363,7 +381,6 @@ struct FootholdAttribute {
 #[derive(Serialize, Deserialize, Debug)]
 struct Origin {
     entry_id: String,
-    #[serde(rename = "subEntityId")]
     sub_entity_id: Option<String>,
     #[serde(rename = "type")]
     origin_type: String,
