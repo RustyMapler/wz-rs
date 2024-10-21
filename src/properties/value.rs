@@ -1,4 +1,5 @@
 use crate::{Vec2, WzCanvas, WzSound};
+use serde::{Serialize, Serializer};
 use std::fmt;
 
 #[derive(Default, Debug, Clone)]
@@ -39,6 +40,23 @@ impl fmt::Display for WzValue {
             WzValue::Canvas(val) => write!(f, "Canvas: {}", val),
             WzValue::Sound(val) => write!(f, "Sound: {}", val),
             WzValue::Uol(val) => write!(f, "Uol: {}", val),
+        }
+    }
+}
+
+impl Serialize for WzValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            WzValue::Short(val) => serializer.serialize_i16(*val),
+            WzValue::Int(val) => serializer.serialize_i32(*val),
+            WzValue::Long(val) => serializer.serialize_i64(*val),
+            WzValue::Float(val) => serializer.serialize_f32(*val),
+            WzValue::Double(val) => serializer.serialize_f64(*val),
+            WzValue::String(val) => serializer.serialize_str(val),
+            _ => serializer.serialize_str(&self.to_string()),
         }
     }
 }

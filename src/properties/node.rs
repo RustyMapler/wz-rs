@@ -1,10 +1,12 @@
 use super::WzValue;
 use indexmap::IndexMap;
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     fmt,
     io::{Error, ErrorKind},
     sync::Arc,
 };
+
 pub struct WzNode {
     pub name: String,
     pub offset: usize,
@@ -48,6 +50,45 @@ impl fmt::Display for WzNode {
             "name(\"{}\"), offset({}), value({:?}), children({:?})",
             self.name, self.offset, self.value, children
         )
+    }
+}
+
+impl Serialize for WzNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(None)?;
+
+        if self.children.is_empty() {
+            match &self.value {
+                WzValue::Short(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Int(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Long(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Float(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Double(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::String(val) => state.serialize_entry(&self.name, val)?,
+                _ => {} // Skip other types
+            }
+        } else {
+            for (key, child) in &self.children {
+                if let WzValue::Extended = &self.value {
+                    match &child.value {
+                        WzValue::Short(val) => state.serialize_entry(key, val)?,
+                        WzValue::Int(val) => state.serialize_entry(key, val)?,
+                        WzValue::Long(val) => state.serialize_entry(key, val)?,
+                        WzValue::Float(val) => state.serialize_entry(key, val)?,
+                        WzValue::Double(val) => state.serialize_entry(key, val)?,
+                        WzValue::String(val) => state.serialize_entry(key, val)?,
+                        _ => state.serialize_entry(key, child.as_ref())?,
+                    }
+                } else {
+                    state.serialize_entry(key, child.as_ref())?;
+                }
+            }
+        }
+
+        state.end()
     }
 }
 
