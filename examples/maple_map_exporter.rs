@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io;
-use std::io::Write;
+use std::io::{self, Write};
 use std::sync::Arc;
 use wz::{properties::node::WzNode, resolve, WzFile, WzVersion};
 
@@ -61,7 +60,15 @@ struct Tile {
     tile_index: i32,
 }
 
-// Enum for Components
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct SolidColor {
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "@type")]
 enum Component {
@@ -73,6 +80,19 @@ enum Component {
         quaternion_rotation: QuaternionRotation,
         #[serde(rename = "Scale")]
         scale: Scale,
+        #[serde(rename = "Enable")]
+        enable: bool,
+    },
+    #[serde(rename = "MOD.Core.BackgroundComponent")]
+    BackgroundComponent {
+        #[serde(rename = "SolidColor")]
+        solid_color: SolidColor,
+        #[serde(rename = "TemplateRUID")]
+        template_ruid: String,
+        #[serde(rename = "Type")]
+        component_type: u32,
+        #[serde(rename = "WebUrl")]
+        web_url: String,
         #[serde(rename = "Enable")]
         enable: bool,
     },
@@ -106,6 +126,24 @@ enum Component {
         #[serde(rename = "Enable")]
         enable: bool,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct Background {
+    name: String,
+    path: String,
+    name_editable: bool,
+    enable: bool,
+    visible: bool,
+    display_order: u32,
+    path_constraints: String,
+    revision: u32,
+    model_id: Option<String>,
+    #[serde(rename = "@components")]
+    components: Vec<Component>,
+    #[serde(rename = "@version")]
+    version: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
