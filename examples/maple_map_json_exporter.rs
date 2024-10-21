@@ -338,7 +338,7 @@ where
 
 fn main() -> io::Result<()> {
     // Read the JSON file
-    let mut file = File::open("assets/map-000020000.json")?;
+    let mut file = File::open("assets/000020000-string.json")?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
@@ -349,7 +349,7 @@ fn main() -> io::Result<()> {
     let serialized_data = serde_json::to_string_pretty(&world).expect("Serialization failed");
 
     // Optionally, write the serialized data back to a file
-    let mut output_file = File::create("assets/map-serialized-000020000.json")?;
+    let mut output_file = File::create("assets/000020000-string-serialized.json")?;
     output_file.write_all(serialized_data.as_bytes())?;
 
     Ok(())
