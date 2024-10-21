@@ -71,6 +71,8 @@ enum Component {
     TileMapComponent(TileMapComponent),
     #[serde(rename = "MOD.Core.MapLayerComponent")]
     MapLayerComponent(MapLayerComponent),
+    #[serde(rename = "MOD.Core.TransformComponent")]
+    TransformComponent(TransformComponent),
     #[serde(other)]
     Unknown, // Catch-all for unknown component types
 }
@@ -108,8 +110,26 @@ struct MapLayerComponent {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TileMapComponent {
+    #[serde(rename = "Color", skip_serializing_if = "Option::is_none")]
+    color: Option<SolidColor>,
+    #[serde(rename = "FootholdDrag", skip_serializing_if = "Option::is_none")]
+    foothold_drag: Option<f32>,
+    #[serde(rename = "FootholdForce", skip_serializing_if = "Option::is_none")]
+    foothold_force: Option<f32>,
+    #[serde(
+        rename = "FootholdWalkSpeedFactor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    foothold_walk_speed_factor: Option<f32>,
+    #[serde(
+        rename = "IgnoreMapLayerCheck",
+        skip_serializing_if = "Option::is_none"
+    )]
+    ignore_map_layer_check: Option<bool>,
     #[serde(rename = "IsOddGridPosition")]
     is_odd_grid_position: bool,
+    #[serde(rename = "OrderInLayer", skip_serializing_if = "Option::is_none")]
+    order_in_layer: Option<u32>,
     #[serde(rename = "SortingLayer")]
     sorting_layer: String,
     #[serde(rename = "TileMapVersion")]
@@ -118,6 +138,19 @@ struct TileMapComponent {
     tile_set_ruid: TileSetRUID,
     #[serde(rename = "Tiles")]
     tiles: Vec<Tile>,
+    #[serde(rename = "Enable")]
+    enable: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+struct TransformComponent {
+    #[serde(rename = "Position")]
+    position: Position,
+    #[serde(rename = "QuaternionRotation")]
+    quaternion_rotation: QuaternionRotation,
+    #[serde(rename = "Scale", skip_serializing_if = "Option::is_none")]
+    scale: Option<Scale>,
     #[serde(rename = "Enable")]
     enable: bool,
 }
@@ -140,15 +173,37 @@ struct TileSetRUID {
 struct Tile {
     #[serde(rename = "type")]
     tile_type: u32,
-    position: Position,
+    position: TilePosition,
     #[serde(rename = "tileIndex")]
     tile_index: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Position {
+struct TilePosition {
     x: i32,
     y: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Position {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct QuaternionRotation {
+    x: f32,
+    y: f32,
+    z: f32,
+    w: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Scale {
+    x: f32,
+    y: f32,
+    z: f32,
 }
 
 // Custom deserialization function for the json field
