@@ -80,7 +80,7 @@ fn test_version_and_version_hash(
     reader.seek(offset as u64)?;
 
     // Test the root directory and look for other directories
-    let node = parse_directory("Test Directory".to_string(), &reader, offset)?;
+    let node = parse_directory(&reader, offset, "Test Directory".to_string())?;
     let ref_node = node.as_ref();
 
     let directories: HashMap<String, Arc<WzNode>> = ref_node
