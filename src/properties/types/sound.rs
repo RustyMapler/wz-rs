@@ -5,6 +5,9 @@ use std::{
     io::{BufWriter, Error, Write},
 };
 
+const WAV_HEADER_SIZE: usize = 44;
+const PCM_SUBCHUNK_SIZE: usize = 16;
+
 #[derive(Default, Debug, Clone)]
 pub struct WzSound {
     pub name: String,
@@ -48,47 +51,6 @@ pub fn parse_sound_buffer(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>,
     let buffer_bytes = reader.read_bytes(sound.buffer_size as u64)?;
     reader.seek(current_position)?;
     Ok(buffer_bytes)
-}
-
-const WAV_HEADER_SIZE: usize = 44;
-const PCM_SUBCHUNK_SIZE: usize = 16;
-
-// Helper function to create a WAV header
-fn create_wav_header(
-    buffer_size: usize,
-    sound_format: &[u8; PCM_SUBCHUNK_SIZE],
-) -> [u8; WAV_HEADER_SIZE] {
-    //https://docs.fileformat.com/audio/wav/
-    const WAV_HEADER_TEMPLATE: [u8; WAV_HEADER_SIZE] = [
-        // RIFF chunk descriptor
-        0x52, 0x49, 0x46, 0x46, // "RIFF" in ASCII
-        0, 0, 0, 0, // Chunk size (file size - 8 bytes)
-        0x57, 0x41, 0x56, 0x45, // "WAVE" in ASCII
-        // fmt sub-chunk
-        0x66, 0x6d, 0x74, 0x20, // "fmt " in ASCII
-        0x10, 0, 0, 0, // Sub-chunk size (16 for PCM)
-        0, 0, // Audio format (1 = PCM, other values indicate compression)
-        0, 0, // Number of channels (1 for mono, 2 for stereo, etc.)
-        0, 0, 0, 0, // Sample rate (e.g., 44100 Hz)
-        0, 0, 0, 0, // Byte rate (sample rate * num channels * bits per sample / 8)
-        0, 0, // Block align (num channels * bits per sample / 8)
-        0, 0, // Bits per sample (e.g., 16 bits)
-        // data sub-chunk
-        0x64, 0x61, 0x74, 0x61, // "data" in ASCII
-        0, 0, 0, 0, // Sub-chunk 2 size (data size)
-    ];
-
-    let riff_chunk_size = (buffer_size + 36).to_le_bytes();
-    let data_chunk_size = buffer_size.to_le_bytes();
-
-    let mut wav_header = WAV_HEADER_TEMPLATE;
-
-    // Fill chunk sizes
-    wav_header[4..8].copy_from_slice(&riff_chunk_size);
-    wav_header[40..44].copy_from_slice(&data_chunk_size);
-    wav_header[20..36].copy_from_slice(sound_format);
-
-    wav_header
 }
 
 pub fn save_sound(path: &str, sound: &WzSound, reader: &WzReader) -> std::io::Result<()> {
@@ -142,4 +104,42 @@ pub fn save_sound(path: &str, sound: &WzSound, reader: &WzReader) -> std::io::Re
     }
 
     Ok(())
+}
+
+// Helper function to create a WAV header
+fn create_wav_header(
+    buffer_size: usize,
+    sound_format: &[u8; PCM_SUBCHUNK_SIZE],
+) -> [u8; WAV_HEADER_SIZE] {
+    //https://docs.fileformat.com/audio/wav/
+    const WAV_HEADER_TEMPLATE: [u8; WAV_HEADER_SIZE] = [
+        // RIFF chunk descriptor
+        0x52, 0x49, 0x46, 0x46, // "RIFF" in ASCII
+        0, 0, 0, 0, // Chunk size (file size - 8 bytes)
+        0x57, 0x41, 0x56, 0x45, // "WAVE" in ASCII
+        // fmt sub-chunk
+        0x66, 0x6d, 0x74, 0x20, // "fmt " in ASCII
+        0x10, 0, 0, 0, // Sub-chunk size (16 for PCM)
+        0, 0, // Audio format (1 = PCM, other values indicate compression)
+        0, 0, // Number of channels (1 for mono, 2 for stereo, etc.)
+        0, 0, 0, 0, // Sample rate (e.g., 44100 Hz)
+        0, 0, 0, 0, // Byte rate (sample rate * num channels * bits per sample / 8)
+        0, 0, // Block align (num channels * bits per sample / 8)
+        0, 0, // Bits per sample (e.g., 16 bits)
+        // data sub-chunk
+        0x64, 0x61, 0x74, 0x61, // "data" in ASCII
+        0, 0, 0, 0, // Sub-chunk 2 size (data size)
+    ];
+
+    let riff_chunk_size = (buffer_size + 36).to_le_bytes();
+    let data_chunk_size = buffer_size.to_le_bytes();
+
+    let mut wav_header = WAV_HEADER_TEMPLATE;
+
+    // Fill chunk sizes
+    wav_header[4..8].copy_from_slice(&riff_chunk_size);
+    wav_header[40..44].copy_from_slice(&data_chunk_size);
+    wav_header[20..36].copy_from_slice(sound_format);
+
+    wav_header
 }

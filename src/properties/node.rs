@@ -92,16 +92,6 @@ impl Serialize for WzNode {
     }
 }
 
-// Function to recursively print the node names and their children
-pub fn print_node(node: &ArcWzNode, depth: usize) {
-    let indent = "-".repeat(depth);
-    println!("{}{}({})", indent, node.name, node.value);
-
-    for child in node.children.values() {
-        print_node(child, depth + 1)
-    }
-}
-
 // Function to resolve a path to a child node
 pub fn resolve(node: &ArcWzNode, path: &str) -> Result<ArcWzNode, Error> {
     let parts: Vec<&str> = path.split('/').collect();
