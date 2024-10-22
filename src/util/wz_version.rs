@@ -87,7 +87,7 @@ fn test_version_and_version_hash(
         .children
         .clone()
         .into_iter()
-        .filter(|(_k, v)| v.value.is_directory())
+        .filter(|(_k, v)| v.value.is_directory() || v.value.is_img())
         .collect();
 
     if directories.is_empty() {
@@ -173,7 +173,7 @@ fn bruteforce_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u32)>
 
 /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
 pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
-    let mut version: i16 = 0;
+    let mut version: i16 = INVALID_VERSION;
     let mut version_hash: u32 = 0;
 
     // Determine file version
@@ -192,7 +192,7 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
             version_hash = attempt_hash;
             log::trace!("success! patch version is v230 or greater!");
         } else {
-            log::trace!("failed to read patch version!");
+            log::warn!("failed to use known patch version");
         }
     } else {
         // If we're using this in a custom client, we'll never have a patch version
@@ -204,7 +204,7 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
             version_hash = attempt_hash;
             log::trace!("success! patch version is {}", attempt_version);
         } else {
-            log::trace!("failed to read patch version!");
+            log::warn!("failed to bruteforce patch version");
         }
     }
 
