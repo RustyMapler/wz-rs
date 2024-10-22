@@ -5,6 +5,21 @@ use std::{
     sync::Arc,
 };
 
+/// Parse the header for a .wz file. Get the file start for the reader.
+pub fn parse_wz_header(reader: &WzReader) -> Result<u32, Error> {
+    let ident = reader.read_string(4)?;
+
+    if ident != "PKG1" {
+        return Err(Error::new(ErrorKind::Other, "Invalid .wz file"));
+    }
+
+    let _size = reader.read_u64()?;
+    let start = reader.read_u32()?;
+    let _copyright = reader.read_string_to_end()?;
+
+    Ok(start)
+}
+
 pub fn parse_directory(
     name: String,
     reader: &Arc<WzReader>,

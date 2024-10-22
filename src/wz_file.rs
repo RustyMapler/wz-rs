@@ -1,10 +1,10 @@
 use crate::{
-    determine_version, get_iv_for_version, get_version_offset, parse_directory,
-    wz_crypto::generate_wz_key, ArcWzNode, WzReader, WzVersion, INVALID_VERSION,
+    crypto::generate_wz_key, determine_version, get_iv_for_version, get_version_offset,
+    parse_directory, parse_wz_header, ArcWzNode, WzReader, WzVersion, INVALID_VERSION,
 };
 use std::{
     fs::{self, File},
-    io::{Cursor, Error, ErrorKind, Read},
+    io::{Cursor, Error, Read},
     path::Path,
     sync::Arc,
 };
@@ -32,7 +32,6 @@ impl WzFile {
         }
     }
 
-    /// Creates a WzFile from filepath
     pub fn open(&mut self) -> Result<(), Error> {
         let file_path = Path::new(&self.file_path);
 
@@ -47,7 +46,7 @@ impl WzFile {
             generate_wz_key(get_iv_for_version(self.wz_version)),
         );
 
-        reader.file_start = WzFile::parse_wz_header(&reader)?.into();
+        reader.file_start = parse_wz_header(&reader)?.into();
 
         if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
             self.version = version;
@@ -58,21 +57,6 @@ impl WzFile {
         self.reader = reader.into();
 
         Ok(())
-    }
-
-    /// Parse the header for a .wz file. Get the file start for the reader.
-    fn parse_wz_header(reader: &WzReader) -> Result<u32, Error> {
-        let ident = reader.read_string(4)?;
-
-        if ident != "PKG1" {
-            return Err(Error::new(ErrorKind::Other, "Invalid .wz file"));
-        }
-
-        let _size = reader.read_u64()?;
-        let start = reader.read_u32()?;
-        let _copyright = reader.read_string_to_end()?;
-
-        Ok(start)
     }
 
     pub fn parse_root_directory(&mut self) -> Result<ArcWzNode, Error> {

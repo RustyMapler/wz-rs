@@ -1,7 +1,7 @@
 use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
 use rfd::FileDialog;
 use std::io::{self, Error};
-use wz::{parse_canvas, ArcWzNode, WzCanvas, WzFile, WzImage, WzValueCast, WzVersion};
+use wz::{parse_canvas, ArcWzNode, WzFile, WzValueCast, WzVersion};
 
 pub struct MainWindow {
     pub window_name: String,

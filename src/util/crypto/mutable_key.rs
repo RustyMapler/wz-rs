@@ -2,7 +2,6 @@ use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::{Aes256, Block};
 use std::f32;
-use std::vec;
 
 #[derive(Clone)]
 pub struct WzMutableKey {
