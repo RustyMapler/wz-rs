@@ -1,7 +1,7 @@
 use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
 use rfd::FileDialog;
 use std::io::{self, Error};
-use wz::{ArcWzNode, WzFile, WzVersion};
+use wz::{parse_canvas, ArcWzNode, WzCanvas, WzFile, WzImage, WzValueCast, WzVersion};
 
 pub struct MainWindow {
     pub window_name: String,
@@ -80,7 +80,8 @@ impl MainWindow {
     }
 
     fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcWzNode) {
-        let collapsing_section = ui.collapsing(node.display(), |ui| {
+        let heading = node_heading(node);
+        let collapsing_section = ui.collapsing(heading, |ui| {
             for child in node.children.values() {
                 self.ui_wz_node_directory_recursive(ui, child);
             }
@@ -100,7 +101,26 @@ impl MainWindow {
             Layout::centered_and_justified(Direction::LeftToRight),
             |ui| {
                 if let Some(selected_wz_node) = &self.selected_wz_node {
-                    ui.label(format!("Selected node: {}", selected_wz_node));
+                    let value = selected_wz_node.value.clone();
+
+                    if let Some(canvas) = value.as_canvas() {
+                        let reader = self.wz_file.as_ref().unwrap().reader.clone();
+                        let image = parse_canvas(canvas, reader).unwrap();
+
+                        let name = selected_wz_node.name.clone();
+                        let size = [image.width as usize, image.height as usize];
+                        let data = image.data.clone();
+
+                        let texture = ui.ctx().load_texture(
+                            name,
+                            egui::ColorImage::from_rgba_unmultiplied(size, &data),
+                            egui::TextureOptions::default(),
+                        );
+
+                        ui.image(&texture);
+                    } else {
+                        ui.label(format!("Selected node: {}", selected_wz_node));
+                    }
                 } else {
                     ui.label("No node selected.");
                 }
@@ -126,6 +146,10 @@ impl MainWindow {
 
         Ok(())
     }
+}
+
+pub fn node_heading(node: &ArcWzNode) -> String {
+    format!("{}({})", node.name, node.offset)
 }
 
 fn main() -> io::Result<()> {

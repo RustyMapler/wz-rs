@@ -36,10 +36,6 @@ impl WzNode {
         log::trace!("node::new | {}", result);
         result
     }
-
-    pub fn display(&self) -> String {
-        format!("{}({})", self.name, self.offset)
-    }
 }
 
 impl fmt::Display for WzNode {
@@ -68,6 +64,7 @@ impl Serialize for WzNode {
                 WzValue::Float(val) => state.serialize_entry(&self.name, val)?,
                 WzValue::Double(val) => state.serialize_entry(&self.name, val)?,
                 WzValue::String(val) => state.serialize_entry(&self.name, val)?,
+                WzValue::Vector(val) => state.serialize_entry(&self.name, val)?,
                 _ => {} // Skip other types
             }
         } else {
@@ -80,6 +77,7 @@ impl Serialize for WzNode {
                         WzValue::Float(val) => state.serialize_entry(key, val)?,
                         WzValue::Double(val) => state.serialize_entry(key, val)?,
                         WzValue::String(val) => state.serialize_entry(key, val)?,
+                        WzValue::Vector(val) => state.serialize_entry(key, val)?,
                         _ => state.serialize_entry(key, child.as_ref())?,
                     }
                 } else {
