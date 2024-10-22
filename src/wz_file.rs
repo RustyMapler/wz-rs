@@ -34,7 +34,6 @@ impl WzFile {
 
     /// Creates a WzFile from filepath
     pub fn open(&mut self) -> Result<(), Error> {
-        log::trace!("name: {}", self.name);
         let file_path = Path::new(&self.file_path);
 
         let mut file = File::open(file_path)?;
@@ -64,17 +63,14 @@ impl WzFile {
     /// Parse the header for a .wz file. Get the file start for the reader.
     fn parse_wz_header(reader: &WzReader) -> Result<u32, Error> {
         let ident = reader.read_string(4)?;
-        log::trace!("ident: {}", ident);
 
         if ident != "PKG1" {
             return Err(Error::new(ErrorKind::Other, "Invalid .wz file"));
         }
 
-        let size = reader.read_u64()?;
+        let _size = reader.read_u64()?;
         let start = reader.read_u32()?;
-        let copyright = reader.read_string_to_end()?;
-
-        log::trace!("size: {}, start: {}, copyright {}", size, start, copyright);
+        let _copyright = reader.read_string_to_end()?;
 
         Ok(start)
     }
