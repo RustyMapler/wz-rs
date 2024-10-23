@@ -2,7 +2,6 @@ use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::{Aes256, Block};
 use std::f32;
-use std::vec;
 
 #[derive(Clone)]
 pub struct WzMutableKey {
@@ -23,22 +22,22 @@ impl WzMutableKey {
     }
 
     pub fn ensure_key_size(&mut self, size: usize) {
-        if self.key.is_some() && self.key.as_ref().unwrap().len() >= size {
-            return;
+        if let Some(ref key) = self.key {
+            if key.len() >= size {
+                return;
+            }
         }
 
         let new_size = ((size as f32 / WzMutableKey::BATCH_SIZE as f32).ceil() as usize)
             * WzMutableKey::BATCH_SIZE;
+
         log::trace!("new key size {}", new_size);
-        let mut new_key: Vec<u8> = vec![];
 
-        let start_index = 0;
-
+        let mut new_key: Vec<u8> = Vec::with_capacity(new_size);
         let key = GenericArray::from_slice(&self.aes_user_key);
-        // Initialize cipher
         let cipher = Aes256::new(key);
 
-        let mut i = start_index;
+        let mut i = 0;
         while i < new_size {
             let mut block = Block::default();
 
@@ -47,18 +46,16 @@ impl WzMutableKey {
                     block[j] = self.iv[j % 4];
                 }
             } else {
-                for j in 0..block.len() {
-                    block[j] = new_key[i - 16 + j];
-                }
+                block.copy_from_slice(&new_key[i - 16..i]);
             }
 
             // Encrypt block in-place
             cipher.encrypt_block(&mut block);
-            new_key.append(&mut block.to_vec());
+            new_key.extend_from_slice(&block);
 
             i += 16;
         }
 
-        self.key = Some(new_key)
+        self.key = Some(new_key);
     }
 }

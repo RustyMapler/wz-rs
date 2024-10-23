@@ -5,10 +5,26 @@ use std::{
     sync::Arc,
 };
 
+/// Parse the header for a .wz file. Get the file start for the reader.
+pub fn parse_wz_header(reader: &WzReader) -> Result<u32, Error> {
+    let ident = reader.read_string(4)?;
+
+    if ident != "PKG1" {
+        return Err(Error::new(ErrorKind::Other, "Invalid .wz file"));
+    }
+
+    let _size = reader.read_u64()?;
+    let start = reader.read_u32()?;
+    let _copyright = reader.read_string_to_end()?;
+
+    Ok(start)
+}
+
 pub fn parse_directory(
-    name: String,
     reader: &Arc<WzReader>,
     offset: usize,
+    name: String,
+    level: usize,
 ) -> Result<ArcWzNode, Error> {
     let mut children = IndexMap::new();
 
@@ -51,16 +67,39 @@ pub fn parse_directory(
         // Build directories and .imgs
         match entry_type {
             3 => {
-                let remember_pos = reader.get_position()?;
-                let node = parse_directory(entry_name.clone(), reader, entry_offset as usize)?;
-                reader.seek(remember_pos)?;
-                children.insert(entry_name.clone(), node);
+                if level > 0 {
+                    let remember_pos = reader.get_position()?;
+                    let node = parse_directory(
+                        reader,
+                        entry_offset as usize,
+                        entry_name.clone(),
+                        level - 1,
+                    )?;
+                    reader.seek(remember_pos)?;
+                    children.insert(entry_name.clone(), node);
+                } else {
+                    let node = Arc::new(WzNode::new(
+                        &entry_name,
+                        entry_offset as usize,
+                        WzValue::Directory,
+                    ));
+                    children.insert(entry_name.clone(), node);
+                }
             }
             _ => {
-                let remember_pos = reader.get_position()?;
-                let node = parse_img(entry_name.clone(), reader, entry_offset as usize)?;
-                reader.seek(remember_pos)?;
-                children.insert(entry_name.clone(), node);
+                if level > 0 {
+                    let remember_pos = reader.get_position()?;
+                    let node = parse_img(reader, entry_offset as usize, entry_name.clone())?;
+                    reader.seek(remember_pos)?;
+                    children.insert(entry_name.clone(), node);
+                } else {
+                    let node = Arc::new(WzNode::new(
+                        &entry_name,
+                        entry_offset as usize,
+                        WzValue::Directory,
+                    ));
+                    children.insert(entry_name.clone(), node);
+                }
             }
         }
     }
@@ -69,7 +108,7 @@ pub fn parse_directory(
     Ok(Arc::new(node))
 }
 
-pub fn parse_img(name: String, reader: &Arc<WzReader>, offset: usize) -> Result<ArcWzNode, Error> {
+pub fn parse_img(reader: &Arc<WzReader>, offset: usize, name: String) -> Result<ArcWzNode, Error> {
     reader.seek(offset as u64)?;
 
     // Read the first byte and check that this node is a .img
@@ -113,7 +152,7 @@ pub fn parse_property_list(
     let num_entries = reader.read_wz_int()?;
     for _ in 0..num_entries {
         let name = reader.read_string_block(offset as u32)?;
-        let node = parse_property(name.clone(), reader, offset)?;
+        let node = parse_property(reader, offset, name.clone())?;
         children.insert(name, Arc::new(node));
     }
 
@@ -121,9 +160,9 @@ pub fn parse_property_list(
 }
 
 pub fn parse_property(
-    name: String,
     reader: &Arc<WzReader>,
     offset: usize,
+    name: String,
 ) -> Result<WzNode, Error> {
     let property_offset = reader.get_position()? as usize;
     let property_type = reader.read_u8()?;
@@ -158,7 +197,7 @@ pub fn parse_property(
         }
         9 => {
             let remember_pos = reader.read_u32()? + reader.get_position()? as u32;
-            let extended_property_node = parse_extended_property(name.clone(), reader, offset)?;
+            let extended_property_node = parse_extended_property(reader, offset, name.clone())?;
             reader.seek(remember_pos as u64)?;
             extended_property_node
         }
@@ -175,9 +214,9 @@ pub fn parse_property(
 }
 
 pub fn parse_extended_property(
-    name: String,
     reader: &Arc<WzReader>,
     offset: usize,
+    name: String,
 ) -> Result<WzNode, Error> {
     let extended_property_offset = reader.get_position()? as usize;
     let extended_property_type = reader.read_string_block(offset as u32)?;
@@ -260,7 +299,7 @@ pub fn parse_extended_property(
             let num_entries = reader.read_wz_int()?;
             for index in 0..num_entries {
                 let entry_name = index.to_string();
-                let entry_node = parse_extended_property(entry_name.clone(), reader, offset)?;
+                let entry_node = parse_extended_property(reader, offset, entry_name.clone())?;
                 properties.insert(entry_name.clone(), Arc::new(entry_node));
             }
 

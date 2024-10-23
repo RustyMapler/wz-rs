@@ -27,14 +27,12 @@ impl WzNode {
         value: impl Into<WzValue>,
         children: IndexMap<String, ArcWzNode>,
     ) -> Self {
-        let result = Self {
+        Self {
             name: name.clone(),
             offset,
             value: value.into(),
             children,
-        };
-        log::trace!("node::new | {}", result);
-        result
+        }
     }
 }
 

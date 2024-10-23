@@ -1,18 +1,5 @@
-use std::fs::File;
 use std::io;
-use std::io::Write;
-use std::sync::Arc;
-use wz::{properties::node::WzNode, resolve, WzFile, WzVersion};
-
-fn to_json(node: &Arc<WzNode>) -> String {
-    serde_json::to_string_pretty(node.as_ref()).unwrap()
-}
-
-fn write_json_to_file(json: &str, output_file: &str) -> io::Result<()> {
-    let mut file = File::create(output_file)?;
-    file.write_all(json.as_bytes())?;
-    Ok(())
-}
+use wz::{resolve, to_json, write_json_to_file, WzFile, WzVersion};
 
 fn to_node_path(map_id: &str) -> String {
     format!("Map/Map{}/{}.img", &map_id[0..1], map_id)

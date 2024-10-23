@@ -1,4 +1,4 @@
-use crate::wz_mutable_key::WzMutableKey;
+use crate::mutable_key::WzMutableKey;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
     cell::RefCell,
