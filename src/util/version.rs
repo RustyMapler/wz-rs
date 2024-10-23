@@ -9,7 +9,7 @@ const WZ_GMS_OLD_IV: [u8; 4] = [0x4D, 0x23, 0xC7, 0x2B];
 const WZ_GMS_IV: [u8; 4] = [0; 4];
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum WzVersion {
     GMS_OLD,
     GMS,
@@ -69,8 +69,6 @@ fn test_version_and_version_hash(
     version: i16,
     version_hash: u32,
 ) -> Result<(), Error> {
-    log::trace!("test: version {}, version_hash {}", version, version_hash);
-
     // Set the reader's version hash
     reader.set_version_hash(version_hash);
 
@@ -80,7 +78,7 @@ fn test_version_and_version_hash(
     reader.seek(offset as u64)?;
 
     // Test the root directory and look for other directories
-    let node = parse_directory(&reader, offset, "Test Directory".to_string())?;
+    let node = parse_directory(&reader, offset, "Test Directory".to_string(), 0)?;
     let ref_node = node.as_ref();
 
     let directories: HashMap<String, Arc<WzNode>> = ref_node
@@ -148,7 +146,10 @@ fn attempt_known_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u3
     let version_hash = calculate_version_hash(version);
     match verify_version_and_version_hash(reader.clone(), version, version_hash) {
         Ok(_) => Some((version, version_hash)),
-        Err(_) => None,
+        Err(err) => {
+            log::error!("attempt_known_version error: {}", err);
+            None
+        }
     }
 }
 
@@ -163,7 +164,10 @@ fn bruteforce_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u32)>
                 brute_force_version_hash,
             ) {
                 Ok(_) => return Some((brute_force_version, brute_force_version_hash)),
-                Err(_) => continue,
+                Err(err) => {
+                    log::error!("bruteforce_version error: {}", err);
+                    continue;
+                }
             }
         }
     }

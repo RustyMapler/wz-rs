@@ -24,6 +24,7 @@ pub fn parse_directory(
     reader: &Arc<WzReader>,
     offset: usize,
     name: String,
+    level: usize,
 ) -> Result<ArcWzNode, Error> {
     let mut children = IndexMap::new();
 
@@ -66,16 +67,39 @@ pub fn parse_directory(
         // Build directories and .imgs
         match entry_type {
             3 => {
-                let remember_pos = reader.get_position()?;
-                let node = parse_directory(reader, entry_offset as usize, entry_name.clone())?;
-                reader.seek(remember_pos)?;
-                children.insert(entry_name.clone(), node);
+                if level > 0 {
+                    let remember_pos = reader.get_position()?;
+                    let node = parse_directory(
+                        reader,
+                        entry_offset as usize,
+                        entry_name.clone(),
+                        level - 1,
+                    )?;
+                    reader.seek(remember_pos)?;
+                    children.insert(entry_name.clone(), node);
+                } else {
+                    let node = Arc::new(WzNode::new(
+                        &entry_name,
+                        entry_offset as usize,
+                        WzValue::Directory,
+                    ));
+                    children.insert(entry_name.clone(), node);
+                }
             }
             _ => {
-                let remember_pos = reader.get_position()?;
-                let node = parse_img(reader, entry_offset as usize, entry_name.clone())?;
-                reader.seek(remember_pos)?;
-                children.insert(entry_name.clone(), node);
+                if level > 0 {
+                    let remember_pos = reader.get_position()?;
+                    let node = parse_img(reader, entry_offset as usize, entry_name.clone())?;
+                    reader.seek(remember_pos)?;
+                    children.insert(entry_name.clone(), node);
+                } else {
+                    let node = Arc::new(WzNode::new(
+                        &entry_name,
+                        entry_offset as usize,
+                        WzValue::Directory,
+                    ));
+                    children.insert(entry_name.clone(), node);
+                }
             }
         }
     }

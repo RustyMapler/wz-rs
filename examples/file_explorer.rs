@@ -5,6 +5,7 @@ use wz::{parse_canvas, ArcWzNode, WzFile, WzValueCast, WzVersion};
 
 pub struct MainWindow {
     pub window_name: String,
+    pub wz_version: WzVersion,
     pub wz_file: Option<WzFile>,
     pub wz_node: Option<ArcWzNode>,
     pub selected_wz_node: Option<ArcWzNode>,
@@ -14,6 +15,7 @@ impl Default for MainWindow {
     fn default() -> Self {
         Self {
             window_name: "Wz Explorer".to_owned(),
+            wz_version: WzVersion::GMS,
             wz_file: None,
             wz_node: None,
             selected_wz_node: None,
@@ -23,6 +25,7 @@ impl Default for MainWindow {
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        MainWindow::set_custom_style(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             self.ui_main_menu_bar(ui);
             self.ui_main_content(ui);
@@ -31,6 +34,22 @@ impl eframe::App for MainWindow {
 }
 
 impl MainWindow {
+    fn set_custom_style(ctx: &egui::Context) {
+        let mut style: egui::Style = (*ctx.style()).clone();
+        style.spacing.item_spacing = egui::vec2(10.0, 10.0);
+
+        let mut visuals = egui::Visuals::dark();
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(40, 44, 52);
+        visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(171, 178, 191);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(50, 54, 61);
+        visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(61, 66, 74);
+        visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
+
+        style.visuals = visuals;
+        ctx.set_style(style);
+    }
+
     pub fn run(&self) -> eframe::Result {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
@@ -49,10 +68,31 @@ impl MainWindow {
     }
 
     fn ui_main_menu_bar(&mut self, ui: &mut egui::Ui) {
-        ui.menu_button("File", |ui| {
-            if ui.button("Open File").clicked() {
-                let _ = self.open_file();
-            }
+        let gms_label = wz_version_label(WzVersion::GMS);
+        let gms_old_label = wz_version_label(WzVersion::GMS_OLD);
+
+        ui.horizontal(|ui| {
+            ui.menu_button("File", |ui| {
+                if ui.button("Open").clicked() {
+                    ui.close_menu();
+                    if let Err(err) = self.open_file() {
+                        eframe::egui::Window::new("Error").show(ui.ctx(), |ui| {
+                            ui.label(format!("Failed to open file: {}", err));
+                        });
+                    }
+                }
+                if ui.button("Close").clicked() {
+                    ui.close_menu();
+                    self.close_file();
+                }
+            });
+
+            egui::ComboBox::new("", "")
+                .selected_text(wz_version_label(self.wz_version))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.wz_version, WzVersion::GMS, gms_label);
+                    ui.selectable_value(&mut self.wz_version, WzVersion::GMS_OLD, gms_old_label);
+                });
         });
     }
 
@@ -131,7 +171,8 @@ impl MainWindow {
     fn open_file(&mut self) -> Result<(), Error> {
         if let Some(path) = FileDialog::new().pick_file() {
             // Create a new wz file
-            let mut wz_file = WzFile::new(path.display().to_string().as_str(), WzVersion::GMS);
+            let wz_version = self.wz_version;
+            let mut wz_file = WzFile::new(path.display().to_string().as_str(), wz_version);
 
             // Open it
             wz_file.open()?;
@@ -145,6 +186,19 @@ impl MainWindow {
         }
 
         Ok(())
+    }
+
+    fn close_file(&mut self) {
+        self.wz_file = None;
+        self.wz_node = None;
+        self.selected_wz_node = None;
+    }
+}
+
+pub fn wz_version_label(wz_version: WzVersion) -> String {
+    match wz_version {
+        WzVersion::GMS => "Modern".to_string(),
+        WzVersion::GMS_OLD => "Legacy".to_string(),
     }
 }
 

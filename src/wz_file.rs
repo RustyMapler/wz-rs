@@ -61,8 +61,9 @@ impl WzFile {
 
     pub fn parse_root_directory(&mut self) -> Result<ArcWzNode, Error> {
         let offset = get_version_offset(*self.reader.file_start.borrow() as usize, self.version);
+        let level = 99;
 
-        let node = parse_directory(&self.reader.clone(), offset, self.name.clone())?;
+        let node = parse_directory(&self.reader.clone(), offset, self.name.clone(), level)?;
 
         Ok(node)
     }
