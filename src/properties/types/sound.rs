@@ -3,6 +3,7 @@ use std::{
     fmt,
     fs::File,
     io::{BufWriter, Error, Write},
+    sync::Arc,
 };
 
 const WAV_HEADER_SIZE: usize = 44;
@@ -31,13 +32,13 @@ impl fmt::Display for WzSound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "WzSound(name: {}, sound_duration: {}, header_offset: {}, header_size: {}, sound_data_offset: {}, sound_size: {})",
+            "WzSound(name: {}, duration: {}, header_offset: {}, header_size: {}, buffer_offset: {}, buffer_size: {})",
             self.name, self.duration, self.header_offset, self.header_size, self.buffer_offset, self.buffer_size
         )
     }
 }
 
-pub fn parse_sound_header(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>, Error> {
+pub fn parse_sound_header(sound: &WzSound, reader: Arc<WzReader>) -> Result<Vec<u8>, Error> {
     let current_position = reader.get_position()?;
     reader.seek(sound.header_offset)?;
     let header_bytes = reader.read_bytes(sound.header_size as u64)?;
@@ -45,7 +46,7 @@ pub fn parse_sound_header(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>,
     Ok(header_bytes)
 }
 
-pub fn parse_sound_buffer(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>, Error> {
+pub fn parse_sound_buffer(sound: &WzSound, reader: Arc<WzReader>) -> Result<Vec<u8>, Error> {
     let current_position = reader.get_position()?;
     reader.seek(sound.buffer_offset)?;
     let buffer_bytes = reader.read_bytes(sound.buffer_size as u64)?;
@@ -53,9 +54,9 @@ pub fn parse_sound_buffer(sound: &WzSound, reader: &WzReader) -> Result<Vec<u8>,
     Ok(buffer_bytes)
 }
 
-pub fn save_sound(path: &str, sound: &WzSound, reader: &WzReader) -> std::io::Result<()> {
-    let sound_header = parse_sound_header(sound, reader)?;
-    let sound_buffer = parse_sound_buffer(sound, reader)?;
+pub fn save_sound(path: &str, sound: &WzSound, reader: Arc<WzReader>) -> std::io::Result<()> {
+    let sound_header = parse_sound_header(sound, reader.clone())?;
+    let sound_buffer = parse_sound_buffer(sound, reader.clone())?;
 
     let sound_type = match sound_header.len() {
         0x46 => "wav",

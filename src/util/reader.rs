@@ -15,6 +15,12 @@ pub struct WzReader {
     pub version_hash: RefCell<u32>,
 }
 
+impl Default for WzReader {
+    fn default() -> Self {
+        WzReader::new(Cursor::new(Vec::new()), None)
+    }
+}
+
 impl WzReader {
     pub const HEADERBYTE_LUA: u8 = 0x1;
     pub const HEADERBYTE_WITH_OFFSET: u8 = 0x1B;
@@ -27,6 +33,10 @@ impl WzReader {
             file_start: 0.into(),
             version_hash: 0.into(),
         }
+    }
+
+    pub fn set_wz_key(&mut self, wz_key: Option<WzMutableKey>) {
+        self.wz_key = wz_key;
     }
 
     pub fn set_file_start(&self, file_start: u32) {

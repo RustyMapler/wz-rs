@@ -116,7 +116,7 @@ fn main() -> io::Result<()> {
     let write_to_file = true;
     let lookup = false;
 
-    let mut wz_file = WzFile::new(input_file, WzVersion::GMS);
+    let mut wz_file = WzFile::new(input_file, WzVersion::GMS)?;
 
     wz_file.open()?;
 

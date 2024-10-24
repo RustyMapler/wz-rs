@@ -1,21 +1,22 @@
 use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
+use itertools::Itertools;
 use rfd::FileDialog;
 use std::io::{self, Error};
-use wz::{parse_canvas, ArcWzNode, WzFile, WzValueCast, WzVersion};
+use wz::{parse_canvas, parse_sound_buffer, ArcWzNode, WzFile, WzImage, WzValueCast, WzVersion};
 
 pub struct MainWindow {
     pub window_name: String,
     pub wz_version: WzVersion,
     pub wz_file: Option<WzFile>,
     pub wz_node: Option<ArcWzNode>,
-    pub selected_wz_node: Option<ArcWzNode>,
+    pub selected_wz_node: Option<SelectedWzNode>,
 }
 
 impl Default for MainWindow {
     fn default() -> Self {
         Self {
             window_name: "Wz Explorer".to_owned(),
-            wz_version: WzVersion::GMS,
+            wz_version: WzVersion::AUTO_DETECT,
             wz_file: None,
             wz_node: None,
             selected_wz_node: None,
@@ -34,22 +35,6 @@ impl eframe::App for MainWindow {
 }
 
 impl MainWindow {
-    fn set_custom_style(ctx: &egui::Context) {
-        let mut style: egui::Style = (*ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(10.0, 10.0);
-
-        let mut visuals = egui::Visuals::dark();
-        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(40, 44, 52);
-        visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(171, 178, 191);
-        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(50, 54, 61);
-        visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
-        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(61, 66, 74);
-        visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
-
-        style.visuals = visuals;
-        ctx.set_style(style);
-    }
-
     pub fn run(&self) -> eframe::Result {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
@@ -67,9 +52,26 @@ impl MainWindow {
         )
     }
 
+    fn set_custom_style(ctx: &egui::Context) {
+        let mut style: egui::Style = (*ctx.style()).clone();
+        style.spacing.item_spacing = egui::vec2(10.0, 10.0);
+
+        let mut visuals = egui::Visuals::dark();
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(40, 44, 52);
+        visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(171, 178, 191);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(50, 54, 61);
+        visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(61, 66, 74);
+        visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(255, 255, 255);
+
+        style.visuals = visuals;
+        ctx.set_style(style);
+    }
+
     fn ui_main_menu_bar(&mut self, ui: &mut egui::Ui) {
-        let gms_label = wz_version_label(WzVersion::GMS);
-        let gms_old_label = wz_version_label(WzVersion::GMS_OLD);
+        let auto_label = version_label(WzVersion::AUTO_DETECT);
+        let gms_label = version_label(WzVersion::GMS);
+        let gms_old_label = version_label(WzVersion::GMS_OLD);
 
         ui.horizontal(|ui| {
             ui.menu_button("File", |ui| {
@@ -87,9 +89,10 @@ impl MainWindow {
                 }
             });
 
-            egui::ComboBox::new("", "")
-                .selected_text(wz_version_label(self.wz_version))
+            egui::ComboBox::from_id_salt("Version")
+                .selected_text(version_label(self.wz_version))
                 .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.wz_version, WzVersion::AUTO_DETECT, auto_label);
                     ui.selectable_value(&mut self.wz_version, WzVersion::GMS, gms_label);
                     ui.selectable_value(&mut self.wz_version, WzVersion::GMS_OLD, gms_old_label);
                 });
@@ -103,7 +106,7 @@ impl MainWindow {
             });
 
             ui.group(|ui| {
-                self.ui_wz_node_selection(ui);
+                self.ui_wz_node_viewer(ui);
             });
         });
     }
@@ -122,7 +125,7 @@ impl MainWindow {
     fn ui_wz_node_directory_recursive(&mut self, ui: &mut egui::Ui, node: &ArcWzNode) {
         let heading = node_heading(node);
         let collapsing_section = ui.collapsing(heading, |ui| {
-            for child in node.children.values() {
+            for child in node.children.values().sorted_by_key(|c| c.offset) {
                 self.ui_wz_node_directory_recursive(ui, child);
             }
 
@@ -132,47 +135,47 @@ impl MainWindow {
         });
 
         if collapsing_section.header_response.clicked() {
-            self.selected_wz_node = Some(node.clone());
+            self.selected_wz_node = Some(self.handle_node_selection(node));
         }
     }
 
-    fn ui_wz_node_selection(&mut self, ui: &mut egui::Ui) {
+    fn ui_wz_node_viewer(&mut self, ui: &mut egui::Ui) {
         ui.with_layout(
             Layout::centered_and_justified(Direction::LeftToRight),
             |ui| {
-                if let Some(selected_wz_node) = &self.selected_wz_node {
-                    let value = selected_wz_node.value.clone();
-
-                    if let Some(canvas) = value.as_canvas() {
-                        let reader = self.wz_file.as_ref().unwrap().reader.clone();
-                        let image = parse_canvas(canvas, reader).unwrap();
-
-                        let name = selected_wz_node.name.clone();
-                        let size = [image.width as usize, image.height as usize];
-                        let data = image.data.clone();
-
-                        let texture = ui.ctx().load_texture(
-                            name,
-                            egui::ColorImage::from_rgba_unmultiplied(size, &data),
-                            egui::TextureOptions::default(),
-                        );
-
-                        ui.image(&texture);
+                if let Some(selected_node) = &self.selected_wz_node {
+                    // Display image or other content
+                    if let Some(image_data) = &selected_node.image_data {
+                        let image_data_clone = image_data.clone();
+                        self.ui_wz_image_viewer(ui, &image_data_clone);
                     } else {
-                        ui.label(format!("Selected node: {}", selected_wz_node));
+                        ui.label(format!("Selected node: {}", selected_node.node));
                     }
                 } else {
-                    ui.label("No node selected.");
+                    ui.label("No node selected");
                 }
             },
         );
+    }
+
+    fn ui_wz_image_viewer(&mut self, ui: &mut egui::Ui, image_data: &WzImage) {
+        let size = [image_data.width as usize, image_data.height as usize];
+        let data = image_data.data.clone();
+
+        let texture = ui.ctx().load_texture(
+            "Image",
+            egui::ColorImage::from_rgba_unmultiplied(size, &data),
+            egui::TextureOptions::default(),
+        );
+
+        ui.image(&texture);
     }
 
     fn open_file(&mut self) -> Result<(), Error> {
         if let Some(path) = FileDialog::new().pick_file() {
             // Create a new wz file
             let wz_version = self.wz_version;
-            let mut wz_file = WzFile::new(path.display().to_string().as_str(), wz_version);
+            let mut wz_file = WzFile::new(path.display().to_string().as_str(), wz_version)?;
 
             // Open it
             wz_file.open()?;
@@ -193,10 +196,43 @@ impl MainWindow {
         self.wz_node = None;
         self.selected_wz_node = None;
     }
+
+    fn handle_node_selection(&mut self, node: &ArcWzNode) -> SelectedWzNode {
+        let mut selected_node = SelectedWzNode::new(node.clone());
+
+        if let Some(canvas) = node.value.as_canvas() {
+            let reader = self.wz_file.as_ref().unwrap().reader.clone();
+            let image_data = parse_canvas(canvas, reader).unwrap();
+            selected_node.image_data = Some(image_data.clone());
+        } else if let Some(sound) = node.value.as_sound() {
+            let reader = self.wz_file.as_ref().unwrap().reader.clone();
+            let audio_data = parse_sound_buffer(sound, reader).unwrap();
+            selected_node.audio_data = Some(audio_data.clone());
+        }
+
+        selected_node
+    }
 }
 
-pub fn wz_version_label(wz_version: WzVersion) -> String {
+pub struct SelectedWzNode {
+    pub node: ArcWzNode,
+    pub image_data: Option<WzImage>,
+    pub audio_data: Option<Vec<u8>>,
+}
+
+impl SelectedWzNode {
+    pub fn new(node: ArcWzNode) -> Self {
+        Self {
+            node,
+            image_data: None,
+            audio_data: None,
+        }
+    }
+}
+
+pub fn version_label(wz_version: WzVersion) -> String {
     match wz_version {
+        WzVersion::AUTO_DETECT => "Auto-detect".to_string(),
         WzVersion::GMS => "Modern".to_string(),
         WzVersion::GMS_OLD => "Legacy".to_string(),
     }
