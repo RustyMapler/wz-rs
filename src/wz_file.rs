@@ -48,11 +48,8 @@ impl WzFile {
 
         reader.file_start = parse_wz_header(&reader)?.into();
 
-        if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
-            self.version = version;
-            self.version_hash = version_hash;
-            reader.set_version_hash(version_hash);
-        }
+        // Determine and set version
+        self.determine_and_set_version(&mut reader);
 
         self.reader = reader.into();
 
@@ -66,5 +63,29 @@ impl WzFile {
         let node = parse_directory(&self.reader.clone(), offset, self.name.clone(), level)?;
 
         Ok(node)
+    }
+
+    fn determine_and_set_version(&mut self, reader: &mut WzReader) {
+        let mut try_set_version = |wz_version| {
+            reader.set_wz_key(generate_wz_key(get_iv_for_version(wz_version)));
+            if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
+                self.version = version;
+                self.version_hash = version_hash;
+                reader.set_version_hash(version_hash);
+                return true;
+            }
+            false
+        };
+
+        // Try to determine version with the current or auto-detected IV
+        if self.wz_version == WzVersion::AUTO_DETECT {
+            if try_set_version(self.wz_version) {
+                return;
+            }
+            // If auto-detect fails, try with GMS_OLD's IV
+            try_set_version(WzVersion::GMS_OLD);
+        } else {
+            try_set_version(self.wz_version);
+        }
     }
 }

@@ -29,6 +29,10 @@ impl WzReader {
         }
     }
 
+    pub fn set_wz_key(&mut self, wz_key: Option<WzMutableKey>) {
+        self.wz_key = wz_key;
+    }
+
     pub fn set_file_start(&self, file_start: u32) {
         *self.file_start.borrow_mut() = file_start;
     }
