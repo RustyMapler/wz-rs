@@ -1,8 +1,7 @@
-use std::io::{self, Error};
-
 use eframe::egui::{self, Color32, Direction, Layout, RichText, ScrollArea};
 use itertools::Itertools;
 use rfd::FileDialog;
+use std::io::{self, Error};
 use wz::{parse_canvas, parse_sound_buffer, ArcWzNode, WzFile, WzImage, WzValueCast, WzVersion};
 
 pub struct MainWindow {
@@ -144,13 +143,16 @@ impl MainWindow {
         ui.with_layout(
             Layout::centered_and_justified(Direction::LeftToRight),
             |ui| {
-                if let Some(node) = &self.selected_wz_node {
-                    if let Some(image_data) = &node.image_data {
+                if let Some(selected_node) = &self.selected_wz_node {
+                    // Display image or other content
+                    if let Some(image_data) = &selected_node.image_data {
                         let image_data_clone = image_data.clone();
                         self.ui_wz_image_viewer(ui, &image_data_clone);
                     } else {
-                        ui.label(format!("Selected node: {}", node.node));
+                        ui.label(format!("Selected node: {}", selected_node.node));
                     }
+                } else {
+                    ui.label("No node selected");
                 }
             },
         );

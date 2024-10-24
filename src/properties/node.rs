@@ -41,7 +41,7 @@ impl fmt::Display for WzNode {
         let children: Vec<String> = self.children.keys().cloned().collect();
         write!(
             f,
-            "name(\"{}\"), offset({}), value({:?}), children({:?})",
+            "name({}), offset({}), value({:?}), children({:?})",
             self.name, self.offset, self.value, children
         )
     }
