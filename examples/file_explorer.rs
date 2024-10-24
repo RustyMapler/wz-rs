@@ -175,7 +175,7 @@ impl MainWindow {
         if let Some(path) = FileDialog::new().pick_file() {
             // Create a new wz file
             let wz_version = self.wz_version;
-            let mut wz_file = WzFile::new(path.display().to_string().as_str(), wz_version);
+            let mut wz_file = WzFile::new(path.display().to_string().as_str(), wz_version)?;
 
             // Open it
             wz_file.open()?;

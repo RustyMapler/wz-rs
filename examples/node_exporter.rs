@@ -16,7 +16,8 @@ fn main() -> io::Result<()> {
     let input_map_id = "000020000";
     let output_file = format!("assets/{}.json", input_map_id);
 
-    let mut wz_file = WzFile::new(input_file, WzVersion::GMS);
+    let mut wz_file = WzFile::new(input_file, WzVersion::GMS)?;
+
     wz_file.open()?;
 
     let root = wz_file.parse_root_directory()?;
