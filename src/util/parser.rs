@@ -69,14 +69,15 @@ pub fn parse_directory(
             3 => {
                 if level > 0 {
                     let remember_pos = reader.get_position()?;
-                    let node = parse_directory(
+                    if let Ok(node) = parse_directory(
                         reader,
                         entry_offset as usize,
                         entry_name.clone(),
                         level - 1,
-                    )?;
+                    ) {
+                        children.insert(entry_name.clone(), node);
+                    }
                     reader.seek(remember_pos)?;
-                    children.insert(entry_name.clone(), node);
                 } else {
                     let node = Arc::new(WzNode::new(
                         &entry_name,
@@ -89,9 +90,10 @@ pub fn parse_directory(
             _ => {
                 if level > 0 {
                     let remember_pos = reader.get_position()?;
-                    let node = parse_img(reader, entry_offset as usize, entry_name.clone())?;
+                    if let Ok(node) = parse_img(reader, entry_offset as usize, entry_name.clone()) {
+                        children.insert(entry_name.clone(), node);
+                    }
                     reader.seek(remember_pos)?;
-                    children.insert(entry_name.clone(), node);
                 } else {
                     let node = Arc::new(WzNode::new(
                         &entry_name,
