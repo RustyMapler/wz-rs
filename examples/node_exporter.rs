@@ -25,7 +25,7 @@ fn main() -> io::Result<()> {
     let path = to_node_path(input_map_id);
 
     if let Ok(node) = resolve(&root, &path) {
-        let json = to_json(&node);
+        let json = to_json(&node)?;
         write_json_to_file(&json, &output_file)?;
         log::info!("JSON data written to {}", output_file);
     } else {

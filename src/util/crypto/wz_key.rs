@@ -1,6 +1,10 @@
 use crate::WzMutableKey;
 
-const MAPLESTORY_USERKEY_DEFAULT: [u8; 128] = [
+pub const WZ_GMS_IV: [u8; 4] = [0; 4];
+
+pub const WZ_GMS_OLD_IV: [u8; 4] = [0x4D, 0x23, 0xC7, 0x2B];
+
+const MAPLESTORY_AES_USERKEY_DEFAULT: [u8; 128] = [
     0x13, 0x00, 0x00, 0x00, 0x52, 0x00, 0x00, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x5B, 0x00, 0x00, 0x00,
     0x08, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00,
     0x06, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x43, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00,
@@ -11,6 +15,19 @@ const MAPLESTORY_USERKEY_DEFAULT: [u8; 128] = [
     0x52, 0x00, 0x00, 0x00, 0xDE, 0x00, 0x00, 0x00, 0xC7, 0x00, 0x00, 0x00, 0x1E, 0x00, 0x00, 0x00,
 ];
 
+/// WZ key used to decrypt strings. In newer WZ versions, decryption is not used
+pub fn generate_wz_key(iv: [u8; 4]) -> Option<WzMutableKey> {
+    if iv[0] == 0 && iv[1] == 0 && iv[2] == 0 && iv[3] == 0 {
+        return None;
+    }
+
+    Some(WzMutableKey {
+        iv,
+        aes_user_key: get_trimmed_user_key(MAPLESTORY_AES_USERKEY_DEFAULT),
+        key: None,
+    })
+}
+
 fn get_trimmed_user_key(user_key: [u8; 128]) -> [u8; 32] {
     let mut key: [u8; 32] = [0; 32];
     let mut i = 0;
@@ -19,16 +36,4 @@ fn get_trimmed_user_key(user_key: [u8; 128]) -> [u8; 32] {
         i += 16;
     }
     key
-}
-
-pub fn generate_wz_key(iv: [u8; 4]) -> Option<WzMutableKey> {
-    if iv[0] == 0 && iv[1] == 0 && iv[2] == 0 && iv[3] == 0 {
-        return None;
-    }
-
-    Some(WzMutableKey {
-        iv,
-        aes_user_key: get_trimmed_user_key(MAPLESTORY_USERKEY_DEFAULT),
-        key: None,
-    })
 }

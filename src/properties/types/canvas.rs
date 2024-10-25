@@ -96,7 +96,6 @@ fn get_raw_image(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<Vec<u8>, Er
 
     let header_buf = &compressed_bytes[0..2];
     let header = LittleEndian::read_u16(header_buf);
-    // let header = reader.read_u16::<LittleEndian>().unwrap();
 
     let used_list_wz = header != 0x9C78 && header != 0xDA78 && header != 0x0178 && header != 0x5E78;
 
@@ -108,7 +107,7 @@ fn get_raw_image(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<Vec<u8>, Er
 
         // let mut blocksize = 0;
         // while reader.position() < compressed_bytes.len() as u64 {
-        //     blocksize = reader.read_i32::<LittleEndian>().unwrap();
+        //     blocksize = reader.read_i32::<LittleEndian>()?;
         //     for i in 0..blocksize {}
         // }
 
@@ -132,7 +131,7 @@ fn get_raw_image(canvas: &WzCanvas, reader: Arc<WzReader>) -> Result<Vec<u8>, Er
         }
     };
 
-    let buf = inflate_bytes_zlib(&data).unwrap();
+    let buf = inflate_bytes_zlib(&data).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(buf[..uncompressed_size].to_vec())
 }
 

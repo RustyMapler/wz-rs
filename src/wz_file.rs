@@ -70,7 +70,7 @@ impl WzFile {
 
     fn determine_and_set_version(&mut self, reader: &mut WzReader) {
         let mut try_set_version = |wz_version| {
-            reader.set_wz_key(generate_wz_key(get_iv_for_version(wz_version)));
+            reader.set_wz_mutable_key(generate_wz_key(get_iv_for_version(wz_version)));
             if let Ok((version, version_hash)) = determine_version(reader.clone().into()) {
                 self.version = version;
                 self.version_hash = version_hash;

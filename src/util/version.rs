@@ -1,12 +1,9 @@
-use crate::{parse_directory, ArcWzNode, WzNode, WzReader, WzValueCast};
+use crate::{parse_directory, ArcWzNode, WzNode, WzReader, WzValueCast, WZ_GMS_IV, WZ_GMS_OLD_IV};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
 };
-
-const WZ_GMS_OLD_IV: [u8; 4] = [0x4D, 0x23, 0xC7, 0x2B];
-const WZ_GMS_IV: [u8; 4] = [0; 4];
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq)]
@@ -149,7 +146,7 @@ fn attempt_known_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u3
     match verify_version_and_version_hash(reader.clone(), version, version_hash) {
         Ok(_) => Some((version, version_hash)),
         Err(err) => {
-            log::error!("attempt_known_version error: {}", err);
+            log::trace!("attempt_known_version error: {}", err);
             None
         }
     }
@@ -167,7 +164,7 @@ fn bruteforce_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u32)>
             ) {
                 Ok(_) => return Some((brute_force_version, brute_force_version_hash)),
                 Err(err) => {
-                    log::error!("bruteforce_version error: {}", err);
+                    log::trace!("bruteforce_version error: {}", err);
                     continue;
                 }
             }
@@ -196,21 +193,16 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
         {
             version = attempt_version;
             version_hash = attempt_hash;
-            log::trace!("success! patch version is v230 or greater!");
-        } else {
-            log::warn!("failed to use known patch version");
+            log::info!("success! patch version is v230 or greater!");
         }
     } else {
-        // If we're using this in a custom client, we'll never have a patch version
         // Brute force the patch version instead
         if let Some((attempt_version, attempt_hash)) =
             bruteforce_version(cloned_reader, version_from_header as i16)
         {
             version = attempt_version;
             version_hash = attempt_hash;
-            log::trace!("success! patch version is {}", attempt_version);
-        } else {
-            log::warn!("failed to bruteforce patch version");
+            log::info!("success! patch version is {}", attempt_version);
         }
     }
 
