@@ -2,8 +2,46 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, Write};
+use uuid::Uuid;
+
+// the below are WZ structs
+#[derive(Serialize, Deserialize, Debug)]
+struct MapData {
+    #[serde(rename = "1")]
+    layer_one: Layer,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
+struct Layer {
+    tile: HashMap<String, TileSub>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TileSub {
+    x: IntValue,
+    y: IntValue,
+    no: IntValue,
+    u: StringValue,
+    zM: IntValue,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct IntValue {
+    _dirName: String,
+    _dirType: String,
+    _value: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct StringValue {
+    _dirName: String,
+    _dirType: String,
+    _value: String,
+}
+
+// break point the below are MSW structs
+
+#[derive(Serialize, Deserialize, Default, Debug)]
 struct Root {
     #[serde(rename = "Id")]
     id: String,
@@ -31,7 +69,7 @@ struct Root {
     content_proto: ContentProto,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 struct ContentProto {
     #[serde(rename = "Use")]
     use_type: String,
@@ -49,7 +87,7 @@ struct Entity {
     json_string: JsonString,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 struct JsonString {
     name: String,
     path: String,
@@ -107,14 +145,14 @@ enum Component {
 struct BackgroundComponent {
     #[serde(rename = "Enable")]
     enable: bool,
-    #[serde(rename = "SolidColor")]
-    solid_color: Color,
+    // #[serde(rename = "SolidColor")]
+    // solid_color: Color,
     #[serde(rename = "TemplateRUID")]
     template_ruid: String,
     #[serde(rename = "Type")]
     background_type: u32,
-    #[serde(rename = "WebUrl")]
-    web_url: String,
+    // #[serde(rename = "WebUrl")]
+    // web_url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -169,26 +207,26 @@ struct FootholdComponent {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct MapComponent {
-    #[serde(rename = "AirAccelerationXFactor")]
-    air_acceleration_x_factor: f32,
-    #[serde(rename = "AirDecelerationXFactor")]
-    air_deceleration_x_factor: f32,
+    // #[serde(rename = "AirAccelerationXFactor")]
+    // air_acceleration_x_factor: f32,
+    // #[serde(rename = "AirDecelerationXFactor")]
+    // air_deceleration_x_factor: f32,
     #[serde(rename = "Enable")]
     enable: bool,
-    #[serde(rename = "FallSpeedMaxXFactor")]
-    fall_speed_max_x_factor: f32,
-    #[serde(rename = "FallSpeedMaxYFactor")]
-    fall_speed_max_y_factor: f32,
-    #[serde(rename = "Gravity")]
-    gravity: f32,
+    // #[serde(rename = "FallSpeedMaxXFactor")]
+    // fall_speed_max_x_factor: f32,
+    // #[serde(rename = "FallSpeedMaxYFactor")]
+    // fall_speed_max_y_factor: f32,
+    // #[serde(rename = "Gravity")]
+    // gravity: f32,
     #[serde(rename = "IsInstanceMap")]
     is_instance_map: bool,
     #[serde(rename = "TileMapMode")]
     tile_map_mode: u32,
-    #[serde(rename = "WalkAccelerationFactor")]
-    walk_acceleration_factor: f32,
-    #[serde(rename = "WalkDrag")]
-    walk_drag: f32,
+    // #[serde(rename = "WalkAccelerationFactor")]
+    // walk_acceleration_factor: f32,
+    // #[serde(rename = "WalkDrag")]
+    // walk_drag: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -272,7 +310,7 @@ struct TagComponent {
     tags: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct TileMapComponent {
     #[serde(rename = "Color", skip_serializing_if = "Option::is_none")]
     color: Option<Color>,
@@ -306,7 +344,7 @@ struct TileMapComponent {
     tiles: Vec<Tile>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct TransformComponent {
     #[serde(rename = "Enable")]
     enable: bool,
@@ -411,7 +449,7 @@ struct Tile {
     tile_type: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct TileSetRUID {
     #[serde(rename = "DataId")]
     data_id: String,
@@ -433,19 +471,264 @@ struct Quaternion {
 }
 
 fn main() -> io::Result<()> {
+    let map_id = "000040001";
+
     // Read the JSON file
-    let mut file = File::open("assets/000020000-proto.json")?;
+    let mut file = File::open(format!("{}.img.json", map_id))?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
     // Deserialize the JSON data
-    let root: Root = serde_json::from_str(&data).expect("Invalid JSON");
+    let map_data: MapData = serde_json::from_str(&data).expect("Invalid JSON");
+
+    fn get_tile_type(tile: &str) -> u32 {
+        match tile {
+            "enH0" => 9, // horizontal top
+            "enH1" => 7, // horizontal bottom
+            "edU" => 11, // circlar top
+            "edD" => 0,  // circular bottom, probably want to skip
+            "enV1" => 8, // vertical left
+            "enV0" => 8, // vertical right & left
+            "bsc" => 5,  // middle
+            "slLU" => 1, // slope left up
+            "slRU" => 3, // slope right up
+            "slLD" => 2, // slope left down
+            "slRD" => 4, // slope right down
+            _ => 0,
+        }
+    }
+
+    fn get_tile_width(tile: &str) -> u32 {
+        match tile {
+            "enH0" => 90, // horizontal top
+            "enH1" => 90, // horizontal bottom
+            "edU" => 54,  // circlar top
+            "edD" => 48,  // circular bottom, probably want to skip
+            "enV1" => 29, // vertical left
+            "enV0" => 29, // vertical right & left
+            "bsc" => 90,  // middle
+            "slLU" => 90, // slope left up
+            "slRU" => 90, // slope right up
+            "slLD" => 90, // slope left down
+            "slRD" => 90, // slope right down
+            _ => {
+                println!("Unknown tile: {}", tile);
+                0
+            }
+        }
+    }
+
+    fn get_tile_height(tile: &str) -> u32 {
+        match tile {
+            "enH0" => 38, // horizontal top
+            "enH1" => 26, // horizontal bottom
+            "edU" => 38,  // circlar top
+            "edD" => 17,  // circular bottom, probably want to skip
+            "enV1" => 60, // vertical left
+            "enV0" => 60, // vertical right & left
+            "bsc" => 60,  // middle
+            "slLU" => 94, // slope left up
+            "slRU" => 94, // slope right up
+            "slLD" => 77, // slope left down
+            "slRD" => 77, // slope right down
+            _ => {
+                println!("Unknown tile: {}", tile);
+                0
+            }
+        }
+    }
+
+    let layer_one_tiles = map_data
+        .layer_one
+        .tile
+        .iter()
+        .map(|(_, tile)| {
+            // if tile type is bsc, then we need to skip it
+            // if get_tile_type(&tile.u._value) == 5
+            //     || get_tile_type(&tile.u._value) == 0
+            //     || get_tile_type(&tile.u._value) == 7
+            // {
+            //     return None;
+            // }
+
+            // println!("----");
+            // println!("({},{})", tile.x._value, tile.y._value);
+            // println!(
+            //     "{} / {} = {}",
+            //     tile.x._value,
+            //     45,
+            //     (tile.x._value / 45 as i32) as f32
+            // );
+
+            // println!(
+            //     "{} / {} = {}",
+            //     tile.y._value,
+            //     30,
+            //     -(tile.y._value / 30 as i32) as f32
+            // );
+
+            Some(Tile {
+                position: Point {
+                    x: (tile.x._value / 45 as i32) as f32,
+                    y: -(tile.y._value / 30 as i32) as f32,
+                },
+                tile_index: 0,
+                tile_type: get_tile_type(&tile.u._value),
+            })
+        })
+        // filter out none
+        .filter_map(|tile| tile)
+        .collect();
+
+    let msw_map = Root {
+        entry_key: format!("map://{}", map_id),
+        content_type: "x-mod/map".to_string(),
+        use_publish: 1,
+        core_version: "1.21.0.0".to_string(),
+        studio_version: "0.1.0.0".to_string(),
+        content_proto: ContentProto {
+            use_type: "Binary".to_string(),
+            entities: vec![
+                Entity {
+                    id: Uuid::new_v4().to_string(),
+                    path: format!("/maps/{}", map_id),
+                    component_names: "MOD.Core.MapComponent".to_string(),
+                    json_string: JsonString {
+                        name: map_id.to_string(),
+                        path: format!("/maps/{}", map_id),
+                        name_editable: true,
+                        enable: true,
+                        visible: true,
+                        display_order: 0,
+                        path_constraints: "//".to_string(),
+                        revision: 1,
+                        version: 1,
+                        components: vec![Component::MapComponent(MapComponent {
+                            is_instance_map: false,
+                            tile_map_mode: 0,
+                            enable: true,
+                        })],
+                        ..Default::default()
+                    },
+                },
+                Entity {
+                    id: Uuid::new_v4().to_string(),
+                    path: format!("/maps/{}/Background", map_id),
+                    component_names: "MOD.Core.BackgroundComponent".to_string(),
+                    json_string: JsonString {
+                        name: "Background".to_string(),
+                        path: format!("/maps/{}/Background", map_id),
+                        name_editable: false,
+                        enable: true,
+                        visible: true,
+                        display_order: 0,
+                        path_constraints: "///".to_string(),
+                        revision: 1,
+                        version: 1,
+                        components: vec![Component::BackgroundComponent(BackgroundComponent {
+                            enable: true,
+                            template_ruid: "9cbbc80343ed406388d581f45b4861fb".to_string(),
+                            background_type: 1,
+                        })],
+                        ..Default::default()
+                    },
+                },
+                Entity {
+                    id: Uuid::new_v4().to_string(),
+                    path: format!("/maps/{}/MapleMapLayer", map_id),
+                    component_names: "MOD.Core.MapLayerComponent".to_string(),
+                    json_string: JsonString {
+                        name: "MapleMapLayer".to_string(),
+                        path: format!("/maps/{}/Background", map_id),
+                        name_editable: false,
+                        enable: true,
+                        visible: true,
+                        display_order: 1,
+                        path_constraints: "///".to_string(),
+                        revision: 1,
+                        version: 1,
+                        origin: Some(Origin {
+                            entry_id: "maplemaplayer".to_string(),
+                            sub_entity_id: None,
+                            origin_type: "Model".to_string(),
+                        }),
+                        components: vec![Component::MapLayerComponent(MapLayerComponent {
+                            enable: true,
+                            is_visible: true,
+                            layer_sort_order: 0,
+                            locked: false,
+                            map_layer_name: "Layer1".to_string(),
+                            thumbnail: "".to_string(),
+                        })],
+                        ..Default::default()
+                    },
+                },
+                Entity {
+                    id: Uuid::new_v4().to_string(),
+                    path: format!("/maps/{}/TileMap", map_id),
+                    component_names: "MOD.Core.TransformComponent,MOD.Core.TileMapComponent"
+                        .to_string(),
+                    json_string: JsonString {
+                        name: "TileMap".to_string(),
+                        path: format!("/maps/{}/TileMap", map_id),
+                        name_editable: false,
+                        enable: true,
+                        visible: true,
+                        display_order: 2,
+                        path_constraints: "///".to_string(),
+                        revision: 1,
+                        version: 1,
+                        origin: Some(Origin {
+                            origin_type: "Model".to_string(),
+                            entry_id: "tilemap".to_string(),
+                            sub_entity_id: None,
+                        }),
+                        components: vec![
+                            Component::TransformComponent(TransformComponent {
+                                enable: true,
+                                position: Some(Transform {
+                                    x: -0.225,
+                                    y: -0.15,
+                                    z: 1000.0,
+                                }),
+                                quaternion_rotation: Some(Quaternion {
+                                    w: 1.0,
+                                    x: 0.0,
+                                    y: 0.0,
+                                    z: 0.0,
+                                }),
+                                scale: Some(Transform {
+                                    x: 1.0,
+                                    y: 1.0,
+                                    z: 1.0,
+                                }),
+                                ..Default::default()
+                            }),
+                            Component::TileMapComponent(TileMapComponent {
+                                enable: true,
+                                is_odd_grid_position: false,
+                                sorting_layer: "MapLayer0".to_string(),
+                                tile_map_version: 1,
+                                tile_set_ruid: TileSetRUID {
+                                    data_id: "46701ff2021b4d1fb21fbf5790b1ab14".to_string(),
+                                },
+                                tiles: layer_one_tiles,
+                                ..Default::default()
+                            }),
+                        ],
+                        ..Default::default()
+                    },
+                },
+            ],
+        },
+        ..Default::default()
+    };
 
     // Serialize the data back to JSON
-    let serialized_data = serde_json::to_string_pretty(&root).expect("Serialization failed");
+    let serialized_data = serde_json::to_string_pretty(&msw_map).expect("Serialization failed");
 
     // Optionally, write the serialized data back to a file
-    let mut output_file = File::create("assets/000020000-proto-serialized.json")?;
+    let mut output_file = File::create(format!("{}.map", map_id))?;
     output_file.write_all(serialized_data.as_bytes())?;
 
     Ok(())
