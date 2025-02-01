@@ -1,11 +1,10 @@
-use crate::properties::node::WzNode;
+use crate::ArcWzNode;
 use std::{
     fs::File,
     io::{Error, ErrorKind, Result, Write},
-    sync::Arc,
 };
 
-pub fn to_json(node: &Arc<WzNode>) -> Result<String> {
+pub fn to_json(node: &ArcWzNode) -> Result<String> {
     serde_json::to_string_pretty(node.as_ref()).map_err(|e| Error::new(ErrorKind::Other, e))
 }
 

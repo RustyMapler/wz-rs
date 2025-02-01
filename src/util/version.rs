@@ -1,4 +1,4 @@
-use crate::{parse_directory, ArcWzNode, WzNode, WzReader, WzValueCast, WZ_GMS_IV, WZ_GMS_OLD_IV};
+use crate::{parse_directory, ArcWzNode, WzReader, WzValueCast, WZ_GMS_IV, WZ_GMS_OLD_IV};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -80,7 +80,7 @@ fn test_version_and_version_hash(
     let node = parse_directory(&reader, offset, "Test Directory".to_string(), 0)?;
     let ref_node = node.as_ref();
 
-    let directories: HashMap<String, Arc<WzNode>> = ref_node
+    let directories: HashMap<String, ArcWzNode> = ref_node
         .children
         .clone()
         .into_iter()
