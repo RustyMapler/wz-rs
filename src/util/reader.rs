@@ -9,10 +9,15 @@ use std::{
 #[derive(Clone)]
 pub struct WzReader {
     pub file: RefCell<Cursor<Vec<u8>>>,
-    /// WZ key used to decrypt strings. In newer WZ versions, decryption is not used
-    pub wz_key: Option<WzMutableKey>,
+    pub wz_mutable_key: Option<WzMutableKey>,
     pub file_start: RefCell<u32>,
     pub version_hash: RefCell<u32>,
+}
+
+impl Default for WzReader {
+    fn default() -> Self {
+        WzReader::new(Cursor::new(Vec::new()), None)
+    }
 }
 
 impl WzReader {
@@ -20,13 +25,17 @@ impl WzReader {
     pub const HEADERBYTE_WITH_OFFSET: u8 = 0x1B;
     pub const HEADERBYTE_WITHOUT_OFFSET: u8 = 0x73;
 
-    pub fn new(buffer: Cursor<Vec<u8>>, wz_key: Option<WzMutableKey>) -> WzReader {
+    pub fn new(buffer: Cursor<Vec<u8>>, wz_mutable_key: Option<WzMutableKey>) -> WzReader {
         WzReader {
             file: RefCell::new(buffer),
-            wz_key: wz_key,
+            wz_mutable_key,
             file_start: 0.into(),
             version_hash: 0.into(),
         }
+    }
+
+    pub fn set_wz_mutable_key(&mut self, wz_mutable_key: Option<WzMutableKey>) {
+        self.wz_mutable_key = wz_mutable_key;
     }
 
     pub fn set_file_start(&self, file_start: u32) {
@@ -212,33 +221,23 @@ impl WzReader {
         let mut mask: u16 = 0xAAAA;
         let mut res_string: Vec<u16> = vec![];
 
-        // while i < (size as usize) {
-        //     let mut character = (characters[i] | characters[i + 1] << 8) as u16;
-        //     character ^= mask;
-        //     characters[i] = character as u8;
-        //     characters[i + 1] = (character >> 8) as u8;
-
-        //     mask += 1;
-        //     i += 2;
-        // }
-
         for i in 0..(size as usize) {
             let mut encrypted_char = self.read_u16()?;
             encrypted_char ^= mask;
 
             // Newer versions do not use encryption
-            let key = self.wz_key.clone();
+            let key = self.wz_mutable_key.clone();
             if let Some(mut key) = key {
                 encrypted_char ^= ((key.at(i * 2 + 1) as u16) << 8) + (key.at(i * 2) as u16)
             }
 
             res_string.push(encrypted_char);
-            mask += 1;
+            mask = mask.wrapping_add(1);
         }
 
         match String::from_utf16(&res_string) {
             Ok(v) => Ok(v),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
         }
     }
 
@@ -250,19 +249,18 @@ impl WzReader {
             encrypted_char ^= mask;
 
             // Newer versions do not use encryption
-            let key = self.wz_key.clone();
+            let key = self.wz_mutable_key.clone();
             if let Some(mut key) = key {
                 encrypted_char ^= key.at(i) as u8
             }
 
-            res_string.push(encrypted_char as u8);
-
+            res_string.push(encrypted_char);
             mask = mask.wrapping_add(1);
         }
 
         match String::from_utf8(res_string) {
             Ok(v) => Ok(v),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
         }
     }
 }

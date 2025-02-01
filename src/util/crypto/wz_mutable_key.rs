@@ -2,7 +2,6 @@ use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockEncrypt, KeyInit};
 use aes::{Aes256, Block};
 use std::f32;
-use std::vec;
 
 #[derive(Clone)]
 pub struct WzMutableKey {
@@ -22,24 +21,24 @@ impl WzMutableKey {
         self.key.as_ref().unwrap()[index]
     }
 
-    pub fn ensure_key_size(&mut self, size: usize) {
-        if self.key.is_some() && self.key.as_ref().unwrap().len() >= size {
-            return;
+    fn ensure_key_size(&mut self, size: usize) {
+        // If the key is already the correct size, do nothing
+        if let Some(ref key) = self.key {
+            if key.len() >= size {
+                return;
+            }
         }
 
-        let new_size = ((size as f32 / WzMutableKey::BATCH_SIZE as f32).ceil() as usize)
-            * WzMutableKey::BATCH_SIZE;
-        log::trace!("new key size {}", new_size);
-        let mut new_key: Vec<u8> = vec![];
+        // Calculate the new size
+        let batch_count = (size as f32 / WzMutableKey::BATCH_SIZE as f32).ceil() as usize;
+        let new_size = batch_count * WzMutableKey::BATCH_SIZE;
+        log::trace!("Calculated new key size: {}", new_size);
 
-        let start_index = 0;
-
+        let mut new_key: Vec<u8> = Vec::with_capacity(new_size);
         let key = GenericArray::from_slice(&self.aes_user_key);
-        // Initialize cipher
         let cipher = Aes256::new(key);
 
-        let mut i = start_index;
-        while i < new_size {
+        for i in (0..new_size).step_by(16) {
             let mut block = Block::default();
 
             if i == 0 {
@@ -47,18 +46,14 @@ impl WzMutableKey {
                     block[j] = self.iv[j % 4];
                 }
             } else {
-                for j in 0..block.len() {
-                    block[j] = new_key[i - 16 + j];
-                }
+                block.copy_from_slice(&new_key[i - 16..i]);
             }
 
             // Encrypt block in-place
             cipher.encrypt_block(&mut block);
-            new_key.append(&mut block.to_vec());
-
-            i += 16;
+            new_key.extend_from_slice(&block);
         }
 
-        self.key = Some(new_key)
+        self.key = Some(new_key);
     }
 }

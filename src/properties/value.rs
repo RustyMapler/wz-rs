@@ -1,6 +1,6 @@
-use std::fmt;
-
 use crate::{Vec2, WzCanvas, WzSound};
+use serde::{Serialize, Serializer};
+use std::fmt;
 
 #[derive(Default, Debug, Clone)]
 pub enum WzValue {
@@ -30,16 +30,33 @@ impl fmt::Display for WzValue {
             WzValue::Img => write!(f, "Img"),
             WzValue::Extended => write!(f, "Extended"),
             WzValue::Convex => write!(f, "Convex"),
-            WzValue::Short(val) => write!(f, "Short({})", val),
-            WzValue::Int(val) => write!(f, "Int({})", val),
-            WzValue::Long(val) => write!(f, "Long({})", val),
-            WzValue::Float(val) => write!(f, "Float({})", val),
-            WzValue::Double(val) => write!(f, "Double({})", val),
-            WzValue::String(val) => write!(f, "String({})", val),
-            WzValue::Vector(val) => write!(f, "Vector({})", val),
-            WzValue::Canvas(val) => write!(f, "Canvas({})", val),
-            WzValue::Sound(val) => write!(f, "Sound({})", val),
-            WzValue::Uol(val) => write!(f, "Uol({})", val),
+            WzValue::Short(val) => write!(f, "Short: {}", val),
+            WzValue::Int(val) => write!(f, "Int: {}", val),
+            WzValue::Long(val) => write!(f, "Long: {}", val),
+            WzValue::Float(val) => write!(f, "Float: {}", val),
+            WzValue::Double(val) => write!(f, "Double: {}", val),
+            WzValue::String(val) => write!(f, "String: {}", val),
+            WzValue::Vector(val) => write!(f, "Vector: {}", val),
+            WzValue::Canvas(val) => write!(f, "Canvas: {}", val),
+            WzValue::Sound(val) => write!(f, "Sound: {}", val),
+            WzValue::Uol(val) => write!(f, "Uol: {}", val),
+        }
+    }
+}
+
+impl Serialize for WzValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            WzValue::Short(val) => serializer.serialize_i16(*val),
+            WzValue::Int(val) => serializer.serialize_i32(*val),
+            WzValue::Long(val) => serializer.serialize_i64(*val),
+            WzValue::Float(val) => serializer.serialize_f32(*val),
+            WzValue::Double(val) => serializer.serialize_f64(*val),
+            WzValue::String(val) => serializer.serialize_str(val),
+            _ => serializer.serialize_str(&self.to_string()),
         }
     }
 }

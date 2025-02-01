@@ -1,6 +1,5 @@
-use std::fmt;
-
 use crate::Vec2;
+use std::fmt;
 
 #[derive(Default, Debug, Clone)]
 pub struct WzImage {

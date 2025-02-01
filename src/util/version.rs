@@ -1,24 +1,23 @@
-use crate::{WzDirectory, WzReader};
+use crate::{parse_directory, ArcWzNode, WzReader, WzValueCast, WZ_GMS_IV, WZ_GMS_OLD_IV};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
 };
 
-const WZ_GMS_OLD_IV: [u8; 4] = [0x4D, 0x23, 0xC7, 0x2B];
-const WZ_GMS_IV: [u8; 4] = [0; 4];
-
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum WzVersion {
+    AUTO_DETECT,
     GMS_OLD,
     GMS,
 }
 
 pub fn get_iv_for_version(version: WzVersion) -> [u8; 4] {
     match version {
-        WzVersion::GMS_OLD => WZ_GMS_OLD_IV,
+        WzVersion::AUTO_DETECT => WZ_GMS_IV,
         WzVersion::GMS => WZ_GMS_IV,
+        WzVersion::GMS_OLD => WZ_GMS_OLD_IV,
     }
 }
 
@@ -69,41 +68,50 @@ fn test_version_and_version_hash(
     version: i16,
     version_hash: u32,
 ) -> Result<(), Error> {
-    log::trace!("test: version {}, version_hash {}", version, version_hash);
-
     // Set the reader's version hash
     reader.set_version_hash(version_hash);
 
     // Seek to the file offset for this version
     let file_start = *reader.file_start.borrow();
-    let offset = get_version_offset(file_start, version);
+    let offset = get_version_offset(file_start as usize, version);
     reader.seek(offset as u64)?;
 
-    // Create a new test directory
-    let mut test_directory = WzDirectory {
-        reader: reader.clone(),
-        offset,
-        name: "Test Directory".to_owned(),
-        directories: HashMap::new(),
-        objects: HashMap::new(),
-    };
-
     // Test the root directory and look for other directories
-    test_directory.parse_directory(false)?;
-    if test_directory.directories.is_empty() && test_directory.objects.is_empty() {
+    let node = parse_directory(&reader, offset, "Test Directory".to_string(), 0)?;
+    let ref_node = node.as_ref();
+
+    let directories: HashMap<String, ArcWzNode> = ref_node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| v.value.is_directory() || v.value.is_img())
+        .collect();
+
+    if directories.is_empty() {
         return Err(Error::new(ErrorKind::Other, "Failed directory test"));
     }
 
+    let objects: HashMap<String, ArcWzNode> = node
+        .children
+        .clone()
+        .into_iter()
+        .filter(|(_k, v)| !v.value.is_directory() && !v.value.is_null())
+        .collect();
+
     // If there are objects, check to see if it has the .img header
-    if !test_directory.objects.is_empty() {
-        let object = match test_directory.objects.iter().next() {
+    if !objects.is_empty() {
+        let object: &Arc<crate::WzNode> = match objects.iter().next() {
             Some((_, object)) => object,
             None => {
                 return Err(Error::new(ErrorKind::Other, "Failed to get next object"));
             }
         };
 
-        reader.seek(object.offset.into())?;
+        if object.value.is_null() {
+            return Err(Error::new(ErrorKind::Other, "Failed object test"));
+        }
+
+        reader.seek(object.offset as u64)?;
 
         let test_byte = reader.read_u8()?;
         if test_byte != WzReader::HEADERBYTE_WITHOUT_OFFSET
@@ -137,7 +145,10 @@ fn attempt_known_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u3
     let version_hash = calculate_version_hash(version);
     match verify_version_and_version_hash(reader.clone(), version, version_hash) {
         Ok(_) => Some((version, version_hash)),
-        Err(_) => None,
+        Err(err) => {
+            log::trace!("attempt_known_version error: {}", err);
+            None
+        }
     }
 }
 
@@ -152,7 +163,10 @@ fn bruteforce_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u32)>
                 brute_force_version_hash,
             ) {
                 Ok(_) => return Some((brute_force_version, brute_force_version_hash)),
-                Err(_) => continue,
+                Err(err) => {
+                    log::trace!("bruteforce_version error: {}", err);
+                    continue;
+                }
             }
         }
     }
@@ -162,7 +176,7 @@ fn bruteforce_version(reader: Arc<WzReader>, version: i16) -> Option<(i16, u32)>
 
 /// Parse the main directory for a .wz file. Nodes can only be resolved when parsed first.
 pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
-    let mut version: i16 = 0;
+    let mut version: i16 = INVALID_VERSION;
     let mut version_hash: u32 = 0;
 
     // Determine file version
@@ -179,21 +193,16 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
         {
             version = attempt_version;
             version_hash = attempt_hash;
-            log::trace!("success! patch version is v230 or greater!");
-        } else {
-            log::trace!("failed to read patch version!");
+            log::info!("success! patch version is v230 or greater!");
         }
     } else {
-        // If we're using this in a custom client, we'll never have a patch version
         // Brute force the patch version instead
         if let Some((attempt_version, attempt_hash)) =
             bruteforce_version(cloned_reader, version_from_header as i16)
         {
             version = attempt_version;
             version_hash = attempt_hash;
-            log::trace!("success! patch version is {}", attempt_version);
-        } else {
-            log::trace!("failed to read patch version!");
+            log::info!("success! patch version is {}", attempt_version);
         }
     }
 
@@ -208,7 +217,7 @@ pub fn determine_version(reader: Arc<WzReader>) -> Result<(i16, u32), Error> {
 }
 
 // File offset depends on the version
-pub fn get_version_offset(file_start: u32, version: i16) -> u32 {
+pub fn get_version_offset(file_start: usize, version: i16) -> usize {
     if version > MAX_BRUTE_FORCE_VERSION {
         file_start
     } else {
